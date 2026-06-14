@@ -18,6 +18,10 @@ import proposalsRoutes from './proposals.routes.js';
 import toolsRoutes from './tools.routes.js';
 import reportsRoutes from './reports.routes.js';
 import adminRoutes from './admin.routes.js';
+import revenueAnalyticsRoutes from './revenueAnalytics.routes.js';
+import employeeAnalyticsRoutes from './employeeAnalytics.routes.js';
+import clientAnalyticsRoutes from './clientAnalytics.routes.js';
+import exportRoutes from './export.routes.js';
 
 const router = Router();
 
@@ -31,6 +35,10 @@ router.use('/invoices', invoicesRoutes);
 router.use('/employees', employeesRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/analytics/revenue', revenueAnalyticsRoutes);
+router.use('/analytics/employees', employeeAnalyticsRoutes);
+router.use('/analytics/clients', clientAnalyticsRoutes);
+router.use('/export', exportRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/documents', documentsRoutes);
 router.use('/attendance', attendanceRoutes);

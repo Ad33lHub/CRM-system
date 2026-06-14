@@ -4,6 +4,8 @@ import { successResponse, paginatedResponse, errorResponse } from '../utils/apiR
 import { getPaginationParams } from '../utils/pagination.js';
 import { queueEmail } from '../services/email.service.js';
 import { createNotification } from '../services/notification.service.js';
+import { clearRevenueCache } from '../services/revenueAnalytics.service.js';
+import { clearClientCache } from '../services/clientAnalytics.service.js';
 import logger from '../utils/logger.js';
 
 async function triggerPaymentEmails(invoice, amountPaid, recordedBy) {
@@ -154,6 +156,8 @@ export const recordPayment = asyncHandler(async (req, res) => {
   );
 
   triggerPaymentEmails(doc, amount, req.user).catch(() => {});
+  clearRevenueCache().catch(() => {});
+  clearClientCache(doc.client?.toString()).catch(() => {});
 
   return successResponse(res, doc, 'Payment recorded successfully');
 });

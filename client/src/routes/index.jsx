@@ -58,6 +58,10 @@ const ProfileSettingsPage = lazy(() => import('../pages/settings/ProfileSettings
 const PresencePage = lazy(() => import('../pages/admin/PresencePage.jsx'));
 const ActivityDashboardPage = lazy(() => import('../pages/admin/ActivityDashboardPage.jsx'));
 
+const RevenueReportPage = lazy(() => import('../pages/reports/RevenueReportPage.jsx'));
+const EmployeeReportPage = lazy(() => import('../pages/reports/EmployeeReportPage.jsx'));
+const ClientReportPage = lazy(() => import('../pages/reports/ClientReportPage.jsx'));
+
 const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage.jsx'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage.jsx'));
 const StyleGuidePage = lazy(() => import('../pages/StyleGuidePage.jsx'));
@@ -125,6 +129,9 @@ export const router = createBrowserRouter([
           { path: '/proposals', element: lazyLoad(ProposalGeneratorPage) },
           { path: '/proposals/new', element: lazyLoad(ProposalGeneratorPage) },
           { path: '/reports', element: lazyLoad(ReportsPage) },
+          { path: '/reports/revenue', element: lazyLoad(RevenueReportPage) },
+          { path: '/reports/employees', element: lazyLoad(EmployeeReportPage) },
+          { path: '/reports/clients', element: lazyLoad(ClientReportPage) },
         ],
       },
     ],

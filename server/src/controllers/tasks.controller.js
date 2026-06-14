@@ -4,6 +4,7 @@ import { successResponse, paginatedResponse, errorResponse } from '../utils/apiR
 import { getPaginationParams } from '../utils/pagination.js';
 import { createNotification } from '../services/notification.service.js';
 import { queueEmail } from '../services/email.service.js';
+import { clearEmployeeCache } from '../services/employeeAnalytics.service.js';
 
 async function triggerTaskAssigned(task, assigneeId) {
   try {
@@ -93,6 +94,10 @@ export const updateTask = asyncHandler(async (req, res) => {
   const newAssignee = doc.assignedTo?.toString();
   if (newAssignee && newAssignee !== prevAssignee) {
     triggerTaskAssigned(doc, doc.assignedTo).catch(() => {});
+  }
+
+  if (doc.status === 'done' && previous?.status !== 'done') {
+    clearEmployeeCache().catch(() => {});
   }
 
   return successResponse(res, doc, 'Task updated successfully');
