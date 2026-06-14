@@ -1,0 +1,45 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="Arial, Helvetica, sans-serif" />
+      <mj-text font-size="14px" color="#374151" line-height="1.6" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#F3F4F6">
+    <mj-section background-color="#1B2A4A" padding="24px 40px">
+      <mj-column>
+        <mj-image src="https://verixsoft.com/icon.png" width="48px" alt="Verixsoft" align="left" />
+        <mj-text color="#FFFFFF" font-size="22px" font-weight="bold" padding-top="8px">Verixsoft CRM</mj-text>
+        <mj-text color="#93C5FD" font-size="13px" padding-top="0">Internal Management System</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#FFFFFF" padding="32px 40px">
+      <mj-column>
+        <mj-text font-size="24px" font-weight="bold" color="#111827" padding-bottom="8px">Welcome aboard, {{firstName}}!</mj-text>
+        <mj-text color="#6B7280" padding-bottom="24px">Your account has been created. Here are your details:</mj-text>
+        <mj-table padding-bottom="24px">
+          <tr style="background:#F9FAFB;border-radius:8px;">
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">Employee ID</td>
+            <td style="padding:10px 16px;color:#111827;font-size:13px;border-bottom:1px solid #E5E7EB;">{{employeeId}}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">Department</td>
+            <td style="padding:10px 16px;color:#111827;font-size:13px;border-bottom:1px solid #E5E7EB;">{{department}}</td>
+          </tr>
+          <tr style="background:#F9FAFB;">
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;">Email</td>
+            <td style="padding:10px 16px;color:#111827;font-size:13px;">{{email}}</td>
+          </tr>
+        </mj-table>
+        <mj-text color="#374151" padding-bottom="16px">Your temporary password hint has been shared separately by your manager. Please change your password on first login.</mj-text>
+        <mj-button background-color="#1B2A4A" color="#FFFFFF" href="{{loginUrl}}" border-radius="6px" font-weight="bold" padding="14px 28px">Log In to CRM</mj-button>
+        <mj-text font-size="13px" color="#6B7280" padding-top="24px">Getting started tips: Set up your profile, explore your assigned tasks, and connect with your team in the Chat module.</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#F3F4F6" padding="16px 40px">
+      <mj-column>
+        <mj-text font-size="11px" color="#9CA3AF" align="center">Verixsoft · DHA, Lahore, Pakistan · +92-300-0000000<br/>You received this because you joined {{companyName}} · <a href="{{unsubscribeUrl}}" style="color:#9CA3AF;">Unsubscribe</a></mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

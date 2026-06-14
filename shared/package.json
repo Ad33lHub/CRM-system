@@ -1,0 +1,13 @@
+{
+  "name": "@crm/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "types/index.js",
+  "exports": {
+    "./constants/roles": "./constants/roles.js",
+    "./constants/statuses": "./constants/statuses.js",
+    "./constants/permissions": "./constants/permissions.js",
+    "./types": "./types/index.js"
+  }
+}

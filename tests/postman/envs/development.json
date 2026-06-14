@@ -1,0 +1,55 @@
+{
+  "id": "88562430-26c9-43d6-aa79-be9343171ef3",
+  "name": "CRM — Development",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "client_url",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "admin_email",
+      "value": "superadmin@crm.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "admin_password",
+      "value": "Admin@12345",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "test_email",
+      "value": "dev@crm.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "test_password",
+      "value": "Dev@12345",
+      "type": "secret",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

@@ -1,0 +1,44 @@
+import { Router } from 'express';
+import authRoutes from './auth.routes.js';
+import clientsRoutes from './clients.routes.js';
+import clientNotesRoutes from './clientNotes.routes.js';
+import leadsRoutes from './leads.routes.js';
+import projectsRoutes from './projects.routes.js';
+import tasksRoutes from './tasks.routes.js';
+import invoicesRoutes from './invoices.routes.js';
+import employeesRoutes from './employees.routes.js';
+import notificationsRoutes from './notifications.routes.js';
+import analyticsRoutes from './analytics.routes.js';
+import uploadRoutes from './upload.routes.js';
+import documentsRoutes from './documents.routes.js';
+import attendanceRoutes from './attendance.routes.js';
+import chatRoutes from './chat.routes.js';
+import meetingsRoutes from './meetings.routes.js';
+import proposalsRoutes from './proposals.routes.js';
+import toolsRoutes from './tools.routes.js';
+import reportsRoutes from './reports.routes.js';
+import adminRoutes from './admin.routes.js';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/clients', clientsRoutes);
+router.use('/', clientNotesRoutes);
+router.use('/leads', leadsRoutes);
+router.use('/projects', projectsRoutes);
+router.use('/tasks', tasksRoutes);
+router.use('/invoices', invoicesRoutes);
+router.use('/employees', employeesRoutes);
+router.use('/notifications', notificationsRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/upload', uploadRoutes);
+router.use('/documents', documentsRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/chat', chatRoutes);
+router.use('/meetings', meetingsRoutes);
+router.use('/proposals', proposalsRoutes);
+router.use('/tools', toolsRoutes);
+router.use('/reports', reportsRoutes);
+router.use('/admin', adminRoutes);
+
+export default router;

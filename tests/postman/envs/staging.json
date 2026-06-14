@@ -1,0 +1,55 @@
+{
+  "id": "8b06ffdd-4ff0-4f3f-b59e-815b039b0dcf",
+  "name": "CRM — Staging",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "https://crm-api-staging.onrender.com/api",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "client_url",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "admin_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "admin_password",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "test_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "test_password",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

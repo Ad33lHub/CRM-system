@@ -1,0 +1,53 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="Arial, Helvetica, sans-serif" />
+      <mj-text font-size="14px" color="#374151" line-height="1.6" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#F3F4F6">
+    <mj-section background-color="#1B2A4A" padding="24px 40px">
+      <mj-column>
+        <mj-image src="https://verixsoft.com/icon.png" width="48px" alt="Verixsoft" align="left" />
+        <mj-text color="#FFFFFF" font-size="22px" font-weight="bold" padding-top="8px">Performance Report</mj-text>
+        <mj-text color="#93C5FD" font-size="13px">{{reportPeriod}}</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#FFFFFF" padding="32px 40px">
+      <mj-column>
+        <mj-text font-size="22px" font-weight="bold" color="#111827" padding-bottom="4px">{{employeeName}}</mj-text>
+        <mj-text color="#6B7280" padding-bottom="24px">{{jobTitle}} · {{department}} · Period: {{reportPeriod}}</mj-text>
+        <mj-table padding-bottom="24px">
+          <tr style="background:#EFF6FF;">
+            <td style="padding:10px 16px;color:#1D4ED8;font-size:13px;font-weight:bold;border-bottom:1px solid #BFDBFE;width:40%;">Overall Score</td>
+            <td style="padding:10px 16px;color:#1D4ED8;font-size:20px;font-weight:bold;border-bottom:1px solid #BFDBFE;">{{overallScore}} / 100</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">Tasks Completed</td>
+            <td style="padding:10px 16px;color:#111827;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">{{tasksCompleted}} / {{tasksAssigned}}</td>
+          </tr>
+          <tr style="background:#F9FAFB;">
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">On-Time Rate</td>
+            <td style="padding:10px 16px;color:#059669;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">{{onTimeRate}}%</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">Attendance Rate</td>
+            <td style="padding:10px 16px;color:#111827;font-size:13px;border-bottom:1px solid #E5E7EB;">{{attendanceRate}}%</td>
+          </tr>
+          <tr style="background:#F9FAFB;">
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;">Reviewed By</td>
+            <td style="padding:10px 16px;color:#111827;font-size:13px;">{{reviewerName}}</td>
+          </tr>
+        </mj-table>
+        <mj-text font-size="15px" font-weight="bold" color="#111827" padding-bottom="8px">Reviewer Comments</mj-text>
+        <mj-text color="#374151" padding-bottom="24px">{{comments}}</mj-text>
+        <mj-button background-color="#1B2A4A" color="#FFFFFF" href="{{reportUrl}}" border-radius="6px" font-weight="bold" padding="14px 28px">View Full Report</mj-button>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#F3F4F6" padding="16px 40px">
+      <mj-column>
+        <mj-text font-size="11px" color="#9CA3AF" align="center">Verixsoft CRM · HR &amp; Performance · <a href="{{unsubscribeUrl}}" style="color:#9CA3AF;">Unsubscribe</a></mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

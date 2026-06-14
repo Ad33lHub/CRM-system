@@ -1,0 +1,46 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="Arial, Helvetica, sans-serif" />
+      <mj-text font-size="14px" color="#374151" line-height="1.6" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#F3F4F6">
+    <mj-section background-color="#059669" padding="24px 40px">
+      <mj-column>
+        <mj-image src="https://verixsoft.com/icon.png" width="48px" alt="Verixsoft" align="left" />
+        <mj-text color="#FFFFFF" font-size="22px" font-weight="bold" padding-top="8px">✅ Payment Confirmed</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#FFFFFF" padding="32px 40px">
+      <mj-column>
+        <mj-text font-size="22px" font-weight="bold" color="#059669" padding-bottom="4px">Payment Received</mj-text>
+        <mj-text color="#374151" padding-bottom="24px">Dear {{clientName}}, we have successfully received your payment. Thank you!</mj-text>
+        <mj-table padding-bottom="24px">
+          <tr style="background:#F0FDF4;">
+            <td style="padding:10px 16px;color:#166534;font-size:13px;font-weight:bold;border-bottom:1px solid #D1FAE5;width:40%;">Amount Received</td>
+            <td style="padding:10px 16px;color:#059669;font-size:20px;font-weight:bold;border-bottom:1px solid #D1FAE5;">{{currency}} {{amount}}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">Invoice Number</td>
+            <td style="padding:10px 16px;color:#111827;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">{{invoiceNumber}}</td>
+          </tr>
+          <tr style="background:#F9FAFB;">
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">Remaining Balance</td>
+            <td style="padding:10px 16px;color:#{{remainingColor}};font-size:13px;font-weight:bold;border-bottom:1px solid #E5E7EB;">{{currency}} {{remaining}}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;color:#6B7280;font-size:13px;font-weight:bold;">Payment Date</td>
+            <td style="padding:10px 16px;color:#111827;font-size:13px;">{{paymentDate}}</td>
+          </tr>
+        </mj-table>
+        <mj-button background-color="#059669" color="#FFFFFF" href="{{invoiceUrl}}" border-radius="6px" font-weight="bold" padding="14px 28px">View Invoice</mj-button>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#F3F4F6" padding="16px 40px">
+      <mj-column>
+        <mj-text font-size="11px" color="#9CA3AF" align="center">Verixsoft · DHA, Lahore, Pakistan · <a href="{{unsubscribeUrl}}" style="color:#9CA3AF;">Unsubscribe</a></mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

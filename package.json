@@ -1,0 +1,33 @@
+{
+  "name": "crm-software-house",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Software House CRM monorepo (client, server, shared).",
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "lint": "npm run lint -w client && npm run lint -w server",
+    "test": "npm run test -w server && npm run test -w client",
+    "install:all": "npm install",
+    "audit:all": "npm audit",
+    "test:api": "newman run tests/postman/CRM_API_Collection.json -e tests/postman/envs/development.json --reporters cli,htmlextra --reporter-htmlextra-export tests/reports/api-report.html",
+    "clean": "rimraf client/dist server/logs client/node_modules server/node_modules node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "newman": "^6.2.2",
+    "newman-reporter-htmlextra": "^1.23.1",
+    "rimraf": "^6.0.1"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

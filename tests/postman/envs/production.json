@@ -1,0 +1,55 @@
+{
+  "id": "3bc8eff8-684c-48a5-b2ba-7e8fa24916fb",
+  "name": "CRM — Production",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "https://crm-api.onrender.com/api",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "client_url",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "admin_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "admin_password",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "test_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "test_password",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
