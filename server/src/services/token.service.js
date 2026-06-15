@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import config from '../config/env.js';
 import RefreshToken from '../models/RefreshToken.model.js';
+import AppError, { ERROR_CODES } from '../utils/AppError.js';
 
 /**
  * Generate JWT access token for authentication
@@ -79,27 +80,22 @@ export const rotateRefreshToken = async (rawToken, ipAddress, userAgent) => {
 
   const existingToken = await RefreshToken.findOne({ token: hashedToken });
   if (!existingToken) {
-    const error = new Error('Invalid refresh token');
-    error.status = 401;
-    error.statusCode = 401;
-    throw error;
+    throw new AppError('Invalid refresh token', 401, ERROR_CODES.UNAUTHORIZED);
   }
 
   // Reuse detection: If token is already invalid, invalidate the entire family
   if (!existingToken.isValid) {
     await RefreshToken.updateMany({ family: existingToken.family }, { isValid: false });
-    const error = new Error('Token reuse detected — please login again');
-    error.status = 401;
-    error.statusCode = 401;
-    throw error;
+    throw new AppError(
+      'Token reuse detected — please login again',
+      401,
+      ERROR_CODES.SESSION_EXPIRED
+    );
   }
 
   // Check expiration
   if (existingToken.expiresAt.getTime() < Date.now()) {
-    const error = new Error('Refresh token expired');
-    error.status = 401;
-    error.statusCode = 401;
-    throw error;
+    throw new AppError('Refresh token expired', 401, ERROR_CODES.SESSION_EXPIRED);
   }
 
   // Invalidate old token

@@ -218,26 +218,26 @@ export default function ProjectCreatePage() {
             {/* Step 6: Review & Finalize */}
             {step === 6 && (
               <div className="space-y-4">
-                <h4 className="font-bold text-slate-700 dark:text-slate-300 text-sm border-b pb-2">Scaffold Review Summary</h4>
+                <h4 className="font-bold text-[#f8fafc] text-sm border-b border-[#1e293b] pb-2">Scaffold Review Summary</h4>
                 <div className="grid grid-cols-2 gap-y-3 text-xs">
-                  <div><span className="text-slate-400">Project Name:</span></div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-100">{name}</div>
-                  <div><span className="text-slate-400">Associated Client ID:</span></div>
-                  <div className="font-semibold truncate max-w-[200px] text-slate-800 dark:text-slate-100">{client}</div>
-                  <div><span className="text-slate-400">Budget Estimate:</span></div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-100">{estimatedBudget || 0} {currency}</div>
-                  <div><span className="text-slate-400">Priority:</span></div>
-                  <div className="font-semibold capitalize text-slate-800 dark:text-slate-100">{priority}</div>
+                  <div><span className="text-[#94a3b8]">Project Name:</span></div>
+                  <div className="font-semibold text-[#f8fafc]">{name}</div>
+                  <div><span className="text-[#94a3b8]">Associated Client ID:</span></div>
+                  <div className="font-semibold truncate max-w-[200px] text-[#f8fafc]">{client}</div>
+                  <div><span className="text-[#94a3b8]">Budget Estimate:</span></div>
+                  <div className="font-semibold text-[#f8fafc]">{estimatedBudget || 0} {currency}</div>
+                  <div><span className="text-[#94a3b8]">Priority:</span></div>
+                  <div className="font-semibold capitalize text-[#f8fafc]">{priority}</div>
                   {startDate && (
                     <>
-                      <div><span className="text-slate-400">Start Date:</span></div>
-                      <div className="font-semibold text-slate-800 dark:text-slate-100">{new Date(startDate).toLocaleDateString()}</div>
+                      <div><span className="text-[#94a3b8]">Start Date:</span></div>
+                      <div className="font-semibold text-[#f8fafc]">{new Date(startDate).toLocaleDateString()}</div>
                     </>
                   )}
                   {deadline && (
                     <>
-                      <div><span className="text-slate-400">Target Deadline:</span></div>
-                      <div className="font-semibold text-slate-800 dark:text-slate-100">{new Date(deadline).toLocaleDateString()}</div>
+                      <div><span className="text-[#94a3b8]">Target Deadline:</span></div>
+                      <div className="font-semibold text-[#f8fafc]">{new Date(deadline).toLocaleDateString()}</div>
                     </>
                   )}
                 </div>

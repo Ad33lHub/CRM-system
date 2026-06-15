@@ -27,13 +27,15 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
       extraOptions
     );
 
-    if (refreshResult.data) {
+    // The server wraps responses in the standard envelope: { success, message, data }
+    const refreshPayload = refreshResult.data?.data;
+    if (refreshPayload?.accessToken) {
       // Store the new credentials in Redux
       const currentUser = api.getState().auth.user;
       api.dispatch(
         setCredentials({
-          user: refreshResult.data.user || currentUser,
-          accessToken: refreshResult.data.accessToken,
+          user: refreshPayload.user || currentUser,
+          accessToken: refreshPayload.accessToken,
         })
       );
       // Retry the initial query with the new token

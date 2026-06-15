@@ -226,7 +226,7 @@ export default function ChatPage() {
                         className="h-8 w-8 rounded-full object-cover border"
                       />
                     ) : (
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-[#334155] text-[#f8fafc] flex items-center justify-center font-extrabold text-xs uppercase shrink-0">
                         {msg.sender?.firstName?.[0]}{msg.sender?.lastName?.[0]}
                       </div>
                     )}
@@ -332,7 +332,7 @@ export default function ChatPage() {
               onChange={(e) => setTypedMessage(e.target.value)}
               placeholder="Type your message here..."
               disabled={isSending}
-              className="flex-1 h-10 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 text-xs focus:outline-none resize-none"
+              className="flex-1 h-10 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none resize-none"
             />
 
             <Button 

@@ -12,6 +12,7 @@ import useAuth from '../../hooks/useAuth.js';
 export default function InvoicesPage() {
   const navigate = useNavigate();
   const { role } = useAuth();
+  const canCreate = ['super_admin', 'admin', 'manager'].includes(role);
   
   // States
   const [statusFilter, setStatusFilter] = useState('all');
@@ -22,18 +23,24 @@ export default function InvoicesPage() {
   });
   const invoices = invoicesData?.data || [];
 
-  const getStatusBadgeVariant = (status) => {
+  const getInvoiceStatusStyle = (status) => {
     switch (status) {
-      case 'paid': return 'success';
-      case 'sent': return 'default';
-      case 'draft': return 'secondary';
-      case 'overdue': return 'warning';
-      case 'void': return 'destructive';
-      default: return 'outline';
+      case 'paid':
+        return { background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80' };
+      case 'draft':
+        return { background: 'rgba(148, 163, 184, 0.12)', color: '#94a3b8' };
+      case 'sent':
+        return { background: 'rgba(59, 130, 246, 0.12)', color: '#60a5fa' };
+      case 'partially_paid':
+        return { background: 'rgba(168, 85, 247, 0.12)', color: '#c084fc' };
+      case 'overdue':
+        return { background: 'rgba(248, 113, 113, 0.12)', color: '#f87171' };
+      case 'void':
+        return { background: 'rgba(148, 163, 184, 0.12)', color: '#64748b' };
+      default:
+        return { background: 'rgba(148, 163, 184, 0.12)', color: '#94a3b8' };
     }
   };
-
-  const canCreate = ['super_admin', 'admin', 'manager'].includes(role);
 
   return (
     <div className="space-y-6">
@@ -42,7 +49,7 @@ export default function InvoicesPage() {
         subtitle="Manage billing contracts, project invoices, and client balances"
         actions={
           canCreate && (
-            <Button onClick={() => navigate('/invoices/new')} className="gap-2">
+            <Button onClick={() => navigate('/invoices/new')} className="btn-primary-cta gap-2">
               <Plus className="h-4 w-4" />
               Create Invoice
             </Button>
@@ -51,46 +58,87 @@ export default function InvoicesPage() {
       />
 
       {/* Filters */}
-      <div className="flex gap-2 border-b pb-4 overflow-x-auto select-none">
-        {['all', 'draft', 'sent', 'paid', 'overdue', 'void'].map((status) => (
-          <Button
-            key={status}
-            variant={statusFilter === status ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setStatusFilter(status)}
-            className="capitalize"
-          >
-            {status}
-          </Button>
-        ))}
+      <div 
+        style={{
+          display: 'flex',
+          gap: '4px',
+          borderBottom: '1px solid #1e293b',
+          marginBottom: '24px',
+          paddingBottom: '12px',
+          overflowX: 'auto',
+          userSelect: 'none'
+        }}
+      >
+        {['all', 'draft', 'sent', 'partially_paid', 'paid', 'overdue', 'void'].map((status) => {
+          const isActive = statusFilter === status;
+          return (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              style={isActive ? {
+                backgroundColor: '#3b82f6',
+                color: '#ffffff',
+                borderRadius: '20px',
+                padding: '6px 16px',
+                fontSize: '14px',
+                fontWeight: 500,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textTransform: 'capitalize'
+              } : {
+                backgroundColor: 'transparent',
+                color: '#64748b',
+                padding: '10px 16px',
+                fontSize: '14px',
+                fontWeight: 500,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textTransform: 'capitalize'
+              }}
+              className="hover:text-slate-100"
+            >
+              {status.replace('_', ' ')}
+            </button>
+          );
+        })}
       </div>
 
       {isLoading ? (
         <div className="text-center py-12 text-slate-400">Loading invoices database...</div>
       ) : invoices.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-slate-900 border rounded-xl">
-          <Receipt className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <h4 className="font-bold text-slate-700 dark:text-slate-300">No Invoices Found</h4>
+        <div className="text-center py-16 bg-[#1a2332] border border-[#1e293b] rounded-xl">
+          <Receipt className="h-12 w-12 text-[#64748b] mx-auto mb-3" />
+          <h4 className="font-bold text-slate-300">No Invoices Found</h4>
           <p className="text-sm text-slate-400 mt-1 max-w-sm mx-auto">
             Try adjusting your status filter or create a new invoice pitch.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-[20px]">
           {invoices.map((inv) => (
             <Card
               key={inv.id || inv._id}
               onClick={() => navigate(`/invoices/${inv.id || inv._id}`)}
               className={cn(
-                'hover:shadow-md transition-all border cursor-pointer bg-white dark:bg-slate-900/50 backdrop-blur-sm',
+                'hover:shadow-md transition-all border cursor-pointer bg-[#1a2332] border-[#1e293b]',
                 inv.status === 'overdue'
-                  ? 'border-red-300 dark:border-red-800 hover:border-red-400'
+                  ? 'border-red-400'
                   : 'hover:border-blue-500/20'
               )}
             >
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardHeader 
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  paddingBottom: '12px'
+                }}
+              >
                 <div className="min-w-0">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate flex items-center gap-1.5">
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#f8fafc' }} className="flex items-center gap-1.5">
                     Invoice #{inv.invoiceNumber}
                     {inv.escalated && (
                       <span title="Escalated — sent multiple overdue alerts">
@@ -98,32 +146,42 @@ export default function InvoicesPage() {
                       </span>
                     )}
                   </h3>
-                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
+                  <p style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '4px' }} className="truncate">
                     {inv.project?.name || 'CRM Workspace'}
                   </p>
                 </div>
-                <Badge variant={getStatusBadgeVariant(inv.status)} className="capitalize text-[9px] font-bold">
-                  {inv.status}
+                <Badge
+                  style={{
+                    borderRadius: '6px',
+                    padding: '2px 10px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    border: 'none',
+                    ...getInvoiceStatusStyle(inv.status)
+                  }}
+                  className="capitalize"
+                >
+                  {inv.status?.replace('_', ' ')}
                 </Badge>
               </CardHeader>
-              <CardContent className="space-y-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                <div className="space-y-2 border-t pt-3">
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="font-medium text-slate-700 dark:text-slate-300 truncate">
+              <CardContent className="text-xs font-semibold">
+                <div style={{ borderTop: '1px solid #1e293b', margin: '12px 0', paddingTop: '12px' }} className="space-y-2">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }} className="text-slate-300">
+                    <User style={{ width: '14px', height: '14px', color: '#64748b' }} className="shrink-0" />
+                    <span className="truncate">
                       {inv.client?.companyName || 'Corporate Client'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }} className="text-slate-300">
+                    <Calendar style={{ width: '14px', height: '14px', color: '#64748b' }} className="shrink-0" />
                     <span>Due: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '--'}</span>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800/60">
-                  <span className="text-slate-400 uppercase text-[9px] tracking-wider font-bold">Total Bill</span>
-                  <span className="font-extrabold text-slate-800 dark:text-slate-200 text-sm">
-                    ${(inv.totals?.total || 0).toLocaleString()}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #1e293b', marginTop: '12px', paddingTop: '12px' }}>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>Total Bill</span>
+                  <span style={{ fontSize: '16px', fontWeight: 700, color: '#f8fafc' }}>
+                    {inv.currency || 'PKR'} {(inv.total || 0).toLocaleString()}
                   </span>
                 </div>
               </CardContent>

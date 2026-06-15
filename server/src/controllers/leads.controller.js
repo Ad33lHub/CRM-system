@@ -25,7 +25,38 @@ export const createLead = asyncHandler(async (req, res) => {
   return successResponse(res, doc, 'Lead created successfully', 201);
 });
 
+// Valid stage transitions — quality gate
+const STAGE_ORDER = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won'];
+
+function isValidStageTransition(from, to) {
+  // 'lost' is allowed from any stage
+  if (to === 'lost') return true;
+  const fromIdx = STAGE_ORDER.indexOf(from);
+  const toIdx = STAGE_ORDER.indexOf(to);
+  if (fromIdx === -1 || toIdx === -1) return false;
+  // Only allow moving to the next stage (no skipping)
+  return toIdx === fromIdx + 1;
+}
+
 export const updateLead = asyncHandler(async (req, res) => {
+  // Enforce stage quality gate
+  if (req.body.stage) {
+    const current = await Lead.findById(req.params.id).lean();
+    if (!current) return errorResponse(res, 'Lead not found', 404);
+
+    if (req.body.stage !== current.stage && !isValidStageTransition(current.stage, req.body.stage)) {
+      const currentIdx = STAGE_ORDER.indexOf(current.stage);
+      const nextAllowed = currentIdx < STAGE_ORDER.length - 1
+        ? [STAGE_ORDER[currentIdx + 1], 'lost']
+        : ['lost'];
+      return errorResponse(
+        res,
+        `Cannot transition from '${current.stage}' to '${req.body.stage}'. Allowed next stages: ${nextAllowed.join(', ')}`,
+        400
+      );
+    }
+  }
+
   const doc = await Lead.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true,

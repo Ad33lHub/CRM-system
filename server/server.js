@@ -24,9 +24,8 @@ async function gracefulShutdown(reason, exitCode = 0) {
 
   server.close(async () => {
     try {
-      const mongoose = await import('mongoose');
-      await mongoose.default.connection.close();
-      logger.info('MongoDB connection closed');
+      const { disconnectDB } = await import('./src/config/db.js');
+      await disconnectDB();
     } catch {
       // ignore
     }

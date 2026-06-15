@@ -4,35 +4,44 @@ const OBJECT_ID = z
   .string()
   .trim()
   .regex(/^[0-9a-fA-F]{24}$/, 'Invalid ID format');
-const STATUSES = ['planning', 'active', 'on_hold', 'completed', 'cancelled'];
+const STATUSES = ['draft', 'active', 'on_hold', 'completed', 'cancelled'];
+const PRIORITIES = ['low', 'medium', 'high', 'critical'];
+
+const budgetSchema = z.object({
+  estimated: z.coerce.number().nonnegative().max(1e9).default(0),
+  currency: z.string().trim().max(8).default('PKR'),
+});
 
 export const createProjectSchema = z.object({
   name: z.string().trim().min(2).max(200),
   description: z.string().trim().max(2000).optional(),
   client: OBJECT_ID,
-  manager: OBJECT_ID.optional(),
   team: z.array(OBJECT_ID).default([]),
-  status: z.enum(STATUSES).default('planning'),
-  budget: z.coerce.number().nonnegative().max(1e9).optional(),
+  status: z.enum(STATUSES).default('draft'),
+  priority: z.enum(PRIORITIES).default('medium'),
+  budget: budgetSchema.optional(),
   startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().optional(),
+  deadline: z.coerce.date().optional(),
   tags: z.array(z.string().trim().max(50)).max(20).default([]),
 });
 
 export const updateProjectSchema = z.object({
   name: z.string().trim().min(2).max(200).optional(),
   description: z.string().trim().max(2000).optional(),
-  manager: OBJECT_ID.optional(),
   status: z.enum(STATUSES).optional(),
-  budget: z.coerce.number().nonnegative().max(1e9).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  budget: budgetSchema.partial().optional(),
   startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().optional(),
+  deadline: z.coerce.date().optional(),
   tags: z.array(z.string().trim().max(50)).max(20).optional(),
 });
 
+// Must match the Project model's team role enum.
+const TEAM_ROLES = ['pm', 'lead_dev', 'developer', 'designer', 'qa'];
+
 export const teamMemberSchema = z.object({
   userId: OBJECT_ID,
-  role: z.string().trim().max(50).optional(),
+  role: z.enum(TEAM_ROLES).optional(),
 });
 
 export const milestoneSchema = z.object({

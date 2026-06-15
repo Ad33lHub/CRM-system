@@ -13,8 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu.jsx';
-import { Menu, User, Settings, LogOut, Moon, Sun } from 'lucide-react';
-import { useTheme } from '../../hooks/useTheme.js';
+import { Menu, User, Settings, LogOut } from 'lucide-react';
 import NotificationBell from '../../features/notifications/components/NotificationBell.jsx';
 
 const pathTitleMap = {
@@ -54,7 +53,7 @@ export default function TopBar({ openMobileSidebar }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+
   const [logoutApi] = useLogoutMutation();
 
   const handleLogout = async () => {
@@ -70,7 +69,7 @@ export default function TopBar({ openMobileSidebar }) {
   const title = getPageTitle(location.pathname);
 
   return (
-    <header className="h-16 w-full flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 bg-background z-20 shrink-0">
+    <header className="h-16 w-full flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-background z-20 shrink-0" style={{ padding: '0 24px' }}>
       {/* Left section: Hamburger & Title */}
       <div className="flex items-center gap-3">
         <Button
@@ -82,23 +81,14 @@ export default function TopBar({ openMobileSidebar }) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <h1 className="text-lg font-bold text-foreground tracking-tight select-none hidden sm:block">
+        <h1 className="tracking-tight select-none hidden sm:block" style={{ fontSize: '14px', fontWeight: 500, color: '#94a3b8' }}>
           {title}
         </h1>
       </div>
 
       {/* Right section: Theme, Notifications, User Menu */}
       <div className="flex items-center gap-2">
-        {/* Theme Toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleTheme}
-          className="text-muted-foreground hover:text-foreground"
-          aria-label="Toggle Theme"
-        >
-          {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </Button>
+
 
         {/* Notification Bell */}
         <NotificationBell />

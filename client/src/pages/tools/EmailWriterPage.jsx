@@ -60,9 +60,9 @@ export default function EmailWriterPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Input Form */}
-        <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-md">
+        <Card className="border border-[#1e293b] bg-[#1a2332] shadow-md">
           <CardHeader>
-            <CardTitle className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <CardTitle className="text-base font-bold text-[#f8fafc] flex items-center gap-2">
               <Mail className="h-5 w-5 text-blue-500" />
               <span>Email Blueprint Parameters</span>
             </CardTitle>
@@ -82,7 +82,7 @@ export default function EmailWriterPage() {
                   placeholder="e.g. Client (Approve Design), Team (Sync Reminder)"
                   required
                   disabled={isLoading}
-                  className="w-full h-11"
+                  className="w-full h-11 bg-[#0f172a] border-[#334155] text-[#f8fafc]"
                 />
               </div>
 
@@ -96,12 +96,12 @@ export default function EmailWriterPage() {
                   value={tone}
                   onChange={(e) => setTone(e.target.value)}
                   disabled={isLoading}
-                  className="flex h-11 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex h-11 w-full rounded-md border border-[#334155] bg-[#0f172a] px-3 py-2 text-sm text-[#f8fafc] focus:outline-none"
                 >
-                  <option value="professional">Professional</option>
-                  <option value="formal">Formal & Corporate</option>
-                  <option value="casual">Casual & Friendly</option>
-                  <option value="persuasive">Persuasive Pitch</option>
+                  <option value="professional" className="bg-[#0f172a] text-[#f8fafc]">Professional</option>
+                  <option value="formal" className="bg-[#0f172a] text-[#f8fafc]">Formal & Corporate</option>
+                  <option value="casual" className="bg-[#0f172a] text-[#f8fafc]">Casual & Friendly</option>
+                  <option value="persuasive" className="bg-[#0f172a] text-[#f8fafc]">Persuasive Pitch</option>
                 </select>
               </div>
 
@@ -118,6 +118,7 @@ export default function EmailWriterPage() {
                   required
                   disabled={isLoading}
                   rows={5}
+                  className="bg-[#0f172a] border-[#334155] text-[#f8fafc]"
                 />
               </div>
 
@@ -144,9 +145,9 @@ export default function EmailWriterPage() {
         </Card>
 
         {/* Output Area */}
-        <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-md flex flex-col max-h-[70vh]">
-          <CardHeader className="border-b py-3 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+        <Card className="border border-[#1e293b] bg-[#1a2332] shadow-md flex flex-col max-h-[70vh]">
+          <CardHeader className="border-b border-[#1e293b] py-3 px-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-bold text-[#f8fafc] flex items-center gap-2">
               <Mail className="h-4.5 w-4.5 text-slate-400" />
               <span>Generated Draft Result</span>
             </CardTitle>
@@ -162,9 +163,9 @@ export default function EmailWriterPage() {
               </Button>
             )}
           </CardHeader>
-          <CardContent className="p-6 overflow-y-auto flex-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+          <CardContent className="p-6 overflow-y-auto flex-1 text-xs leading-relaxed text-slate-300">
             {generatedEmail ? (
-              <pre className="whitespace-pre-wrap font-sans text-sm bg-slate-50 dark:bg-slate-950/20 p-5 rounded-lg border border-slate-100 dark:border-slate-800 leading-relaxed">
+              <pre className="whitespace-pre-wrap font-sans text-sm bg-[#0f172a] p-5 rounded-lg border border-[#1e293b] text-[#f8fafc] leading-relaxed">
                 {generatedEmail}
               </pre>
             ) : (

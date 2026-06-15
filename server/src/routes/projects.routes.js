@@ -5,6 +5,8 @@ import {
   createProject,
   updateProject,
   deleteProject,
+  addTeamMember,
+  removeTeamMember,
 } from '../controllers/projects.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { checkPermission, checkRole, clientPortalGuard } from '../middleware/rbac.middleware.js';
@@ -13,6 +15,7 @@ import {
   createProjectSchema,
   updateProjectSchema,
   projectQuerySchema,
+  teamMemberSchema,
 } from '../validators/project.validator.js';
 
 const router = Router();
@@ -45,5 +48,20 @@ router.patch(
 );
 
 router.delete('/:id', verifyToken, checkRole('super_admin', 'admin'), deleteProject);
+
+router.post(
+  '/:id/team',
+  verifyToken,
+  checkPermission('projects', 'update'),
+  validate({ body: teamMemberSchema }),
+  addTeamMember
+);
+
+router.delete(
+  '/:id/team/:userId',
+  verifyToken,
+  checkPermission('projects', 'update'),
+  removeTeamMember
+);
 
 export default router;

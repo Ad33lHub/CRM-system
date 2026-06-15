@@ -17,7 +17,7 @@ export function PageHeader({
   breadcrumbs,
 }) {
   return (
-    <div className="space-y-4 mb-6">
+    <div className="space-y-4" style={{ marginBottom: '32px' }}>
       {/* Breadcrumbs Row */}
       {breadcrumbs && breadcrumbs.length > 0 && (
         <Breadcrumb>
@@ -48,11 +48,11 @@ export function PageHeader({
       {/* Title + Actions Row */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="tracking-tight text-foreground" style={{ fontSize: '32px', fontWeight: 700, color: '#f8fafc' }}>
             {title}
           </h1>
           {subtitle && (
-            <p className="text-sm text-muted-foreground">
+            <p style={{ fontSize: '14px', color: '#64748b', marginTop: '6px' }}>
               {subtitle}
             </p>
           )}

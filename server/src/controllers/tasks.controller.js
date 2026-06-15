@@ -72,11 +72,24 @@ export const getTask = asyncHandler(async (req, res) => {
   return successResponse(res, doc, 'Task fetched successfully');
 });
 
-export const createTask = asyncHandler(async (req, res) => {
-  const doc = await Task.create(req.body);
+// Primary assignee user id from the model's assignees array, if any.
+function primaryAssigneeId(task) {
+  const assignees = task?.assignees || [];
+  const primary = assignees.find((a) => a.isPrimary) || assignees[0];
+  return primary?.user?.toString() || null;
+}
 
-  if (doc.assignedTo) {
-    triggerTaskAssigned(doc, doc.assignedTo).catch(() => {});
+export const createTask = asyncHandler(async (req, res) => {
+  const { assignedTo, ...rest } = req.body;
+  const payload = { ...rest, createdBy: req.user._id };
+  if (assignedTo) {
+    payload.assignees = [{ user: assignedTo, isPrimary: true }];
+  }
+
+  const doc = await Task.create(payload);
+
+  if (assignedTo) {
+    triggerTaskAssigned(doc, assignedTo).catch(() => {});
   }
 
   return successResponse(res, doc, 'Task created successfully', 201);
@@ -84,16 +97,31 @@ export const createTask = asyncHandler(async (req, res) => {
 
 export const updateTask = asyncHandler(async (req, res) => {
   const previous = await Task.findById(req.params.id).lean();
-  const doc = await Task.findByIdAndUpdate(req.params.id, req.body, {
+  if (!previous) return errorResponse(res, 'Task not found', 404);
+
+  const { assignedTo, ...rest } = req.body;
+  const update = { ...rest };
+
+  // Translate the single-assignee API field into the model's assignees array.
+  if (assignedTo !== undefined) {
+    update.assignees = assignedTo ? [{ user: assignedTo, isPrimary: true }] : [];
+  }
+
+  // Set completedAt when moving to done
+  if (update.status && update.status !== previous.status && update.status === 'done') {
+    update.completedAt = new Date();
+  }
+
+  const doc = await Task.findByIdAndUpdate(req.params.id, update, {
     new: true,
     runValidators: true,
   });
   if (!doc) return errorResponse(res, 'Task not found', 404);
 
-  const prevAssignee = previous?.assignedTo?.toString();
-  const newAssignee = doc.assignedTo?.toString();
+  const prevAssignee = primaryAssigneeId(previous);
+  const newAssignee = primaryAssigneeId(doc);
   if (newAssignee && newAssignee !== prevAssignee) {
-    triggerTaskAssigned(doc, doc.assignedTo).catch(() => {});
+    triggerTaskAssigned(doc, newAssignee).catch(() => {});
   }
 
   if (doc.status === 'done' && previous?.status !== 'done') {

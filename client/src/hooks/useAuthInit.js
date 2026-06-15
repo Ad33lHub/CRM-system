@@ -16,8 +16,8 @@ export default function useAuthInit() {
 
     async function initAuth() {
       try {
-        // Attempt silent refresh
-        const refreshRes = await api.post('/auth/refresh');
+        // Attempt silent refresh with a short timeout so the UI loads fast
+        const refreshRes = await api.post('/auth/refresh', {}, { timeout: 3000 });
         const accessToken = refreshRes.data?.data?.accessToken;
 
         if (accessToken && isMounted) {

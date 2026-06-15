@@ -11,7 +11,7 @@ const lineItemSchema = new mongoose.Schema(
 );
 
 lineItemSchema.virtual('total').get(function getLineTotal() {
-  return this.quantity * this.unitPrice;
+  return Math.round(this.quantity * this.unitPrice * 100) / 100;
 });
 
 const invoiceSchema = new mongoose.Schema(
@@ -33,6 +33,7 @@ const invoiceSchema = new mongoose.Schema(
       default: 'draft',
     },
     dueDate: { type: Date, required: true },
+    sentAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
     paidAmount: { type: Number, default: 0 },
     paymentMethod: {
@@ -44,6 +45,8 @@ const invoiceSchema = new mongoose.Schema(
     paymentNotes: { type: String, default: null },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     approvedAt: { type: Date, default: null },
+    voidReason: { type: String, default: null, maxlength: 500 },
+    voidedAt: { type: Date, default: null },
     notes: { type: String, maxlength: 1000 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     escalated: { type: Boolean, default: false },
@@ -56,18 +59,23 @@ invoiceSchema.index({ client: 1, status: 1 });
 invoiceSchema.index({ status: 1, dueDate: 1 });
 invoiceSchema.index({ createdAt: -1 });
 
+// Virtual: amount still due (never negative)
+invoiceSchema.virtual('amountDue').get(function getAmountDue() {
+  return Math.max(0, Math.round((this.total - (this.paidAmount || 0)) * 100) / 100);
+});
+
 // Compute monetary fields and generate the invoice number BEFORE validation,
 // so the `required` subtotal/total/invoiceNumber checks see populated values.
 invoiceSchema.pre('validate', async function computeAndNumber(next) {
   try {
     const subtotal = (this.lineItems || []).reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
+      (sum, item) => sum + Math.round(item.quantity * item.unitPrice * 100) / 100,
       0
     );
-    this.subtotal = subtotal;
-    this.taxAmount = (subtotal * (this.taxPercent || 0)) / 100;
-    this.discountAmount = (subtotal * (this.discountPercent || 0)) / 100;
-    this.total = subtotal + this.taxAmount - this.discountAmount;
+    this.subtotal = Math.round(subtotal * 100) / 100;
+    this.taxAmount = Math.round((this.subtotal * (this.taxPercent || 0)) / 100 * 100) / 100;
+    this.discountAmount = Math.round((this.subtotal * (this.discountPercent || 0)) / 100 * 100) / 100;
+    this.total = Math.round((this.subtotal + this.taxAmount - this.discountAmount) * 100) / 100;
 
     if (this.isNew && !this.invoiceNumber) {
       const year = new Date().getFullYear();

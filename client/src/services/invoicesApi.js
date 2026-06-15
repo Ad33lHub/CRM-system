@@ -31,7 +31,7 @@ export const invoicesApi = baseApi.injectEndpoints({
     updateInvoice: builder.mutation({
       query: ({ id, data }) => ({
         url: `/invoices/${id}`,
-        method: 'PATCH',
+        method: 'PUT',
         body: data,
       }),
       invalidatesTags: (result, error, { id }) => [
@@ -49,9 +49,21 @@ export const invoicesApi = baseApi.injectEndpoints({
         { type: 'Invoice', id: 'LIST' },
       ],
     }),
-    approvePayment: builder.mutation({
+    // Transition draft → sent and email the client.
+    sendInvoice: builder.mutation({
+      query: (id) => ({
+        url: `/invoices/${id}/send`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, id) => [
+        { type: 'Invoice', id },
+        { type: 'Invoice', id: 'LIST' },
+      ],
+    }),
+    // Record a (partial or full) payment against an invoice.
+    recordPayment: builder.mutation({
       query: ({ id, data }) => ({
-        url: `/invoices/${id}/approve`,
+        url: `/invoices/${id}/payment`,
         method: 'POST',
         body: data,
       }),
@@ -60,10 +72,23 @@ export const invoicesApi = baseApi.injectEndpoints({
         { type: 'Invoice', id: 'LIST' },
       ],
     }),
-    generatePdf: builder.query({
+    voidInvoice: builder.mutation({
+      query: ({ id, reason }) => ({
+        url: `/invoices/${id}/void`,
+        method: 'POST',
+        body: { reason },
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'Invoice', id },
+        { type: 'Invoice', id: 'LIST' },
+      ],
+    }),
+    // Download the rendered invoice PDF as a Blob.
+    getInvoicePdf: builder.query({
       query: (id) => ({
         url: `/invoices/${id}/pdf`,
         responseHandler: (response) => response.blob(),
+        cache: 'no-cache',
       }),
     }),
   }),
@@ -75,6 +100,8 @@ export const {
   useCreateInvoiceMutation,
   useUpdateInvoiceMutation,
   useDeleteInvoiceMutation,
-  useApprovePaymentMutation,
-  useGeneratePdfQuery,
+  useSendInvoiceMutation,
+  useRecordPaymentMutation,
+  useVoidInvoiceMutation,
+  useLazyGetInvoicePdfQuery,
 } = invoicesApi;

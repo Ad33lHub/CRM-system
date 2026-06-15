@@ -101,6 +101,8 @@ const config = Object.freeze({
 
   // ── Logging ──────────────────────────────────────
   LOG_LEVEL: process.env.LOG_LEVEL || 'debug',
+  // Console prints errors only by default; set to 'info'/'debug' for more detail.
+  CONSOLE_LOG_LEVEL: process.env.CONSOLE_LOG_LEVEL || 'error',
   LOG_DIR: process.env.LOG_DIR || './logs',
   LOG_SERVICE_URL: process.env.LOG_SERVICE_URL || '',
 

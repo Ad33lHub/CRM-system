@@ -18,42 +18,74 @@ export default function ProfileTabs({ clientId, client, onUpdateClient }) {
     }
   };
 
+  const getTabStyle = (tabName) => {
+    const isActive = activeTab === tabName;
+    return {
+      padding: '10px 16px',
+      borderBottom: isActive ? '2px solid #3b82f6' : '2px solid transparent',
+      color: isActive ? '#f8fafc' : '#64748b',
+      backgroundColor: 'transparent',
+      fontWeight: 500,
+      fontSize: '14px',
+      transition: 'all 0.2s',
+      cursor: 'pointer'
+    };
+  };
+
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
-      <TabsList className="grid grid-cols-6 w-full md:w-auto md:inline-flex border-b h-11 bg-background p-0 rounded-none gap-6">
+      <TabsList 
+        style={{
+          display: 'flex',
+          gap: '4px',
+          borderBottom: '1px solid #1e293b',
+          marginBottom: '24px',
+          backgroundColor: 'transparent',
+          height: 'auto',
+          padding: 0,
+          borderRadius: 0
+        }}
+        className="w-full overflow-x-auto flex-nowrap justify-start"
+      >
         <TabsTrigger
           value="overview"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 font-semibold text-sm h-11"
+          style={getTabStyle('overview')}
+          className="rounded-none shadow-none focus-visible:ring-0 focus-visible:outline-none"
         >
           Overview
         </TabsTrigger>
         <TabsTrigger
           value="projects"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 font-semibold text-sm h-11"
+          style={getTabStyle('projects')}
+          className="rounded-none shadow-none focus-visible:ring-0 focus-visible:outline-none"
         >
           Projects
         </TabsTrigger>
         <TabsTrigger
           value="invoices"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 font-semibold text-sm h-11"
+          style={getTabStyle('invoices')}
+          className="rounded-none shadow-none focus-visible:ring-0 focus-visible:outline-none"
         >
           Invoices
         </TabsTrigger>
         <TabsTrigger
           value="notes"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 font-semibold text-sm h-11"
+          style={getTabStyle('notes')}
+          className="rounded-none shadow-none focus-visible:ring-0 focus-visible:outline-none"
         >
           Notes
         </TabsTrigger>
         <TabsTrigger
           value="status_history"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 font-semibold text-sm h-11"
+          style={getTabStyle('status_history')}
+          className="rounded-none shadow-none focus-visible:ring-0 focus-visible:outline-none"
         >
           Status History
         </TabsTrigger>
         <TabsTrigger
           value="documents"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 font-semibold text-sm h-11"
+          style={getTabStyle('documents')}
+          className="rounded-none shadow-none focus-visible:ring-0 focus-visible:outline-none"
         >
           Documents
         </TabsTrigger>

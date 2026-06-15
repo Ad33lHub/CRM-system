@@ -6,7 +6,10 @@ import {
   updateInvoice,
   deleteInvoice,
   approveInvoice,
+  sendInvoice,
+  voidInvoice,
   recordPayment,
+  generateInvoicePdf,
 } from '../controllers/invoices.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { checkPermission, clientPortalGuard } from '../middleware/rbac.middleware.js';
@@ -15,6 +18,7 @@ import {
   createInvoiceSchema,
   updateInvoiceSchema,
   addPaymentSchema,
+  voidInvoiceSchema,
   invoiceQuerySchema,
 } from '../validators/invoice.validator.js';
 
@@ -29,6 +33,14 @@ router.get(
 );
 
 router.get('/:id', verifyToken, checkPermission('invoices', 'read'), clientPortalGuard, getInvoice);
+
+router.get(
+  '/:id/pdf',
+  verifyToken,
+  checkPermission('invoices', 'read'),
+  clientPortalGuard,
+  generateInvoicePdf
+);
 
 router.post(
   '/',
@@ -49,6 +61,16 @@ router.put(
 router.delete('/:id', verifyToken, checkPermission('invoices', 'delete'), deleteInvoice);
 
 router.post('/:id/approve', verifyToken, checkPermission('invoices', 'approve'), approveInvoice);
+
+router.post('/:id/send', verifyToken, checkPermission('invoices', 'update'), sendInvoice);
+
+router.post(
+  '/:id/void',
+  verifyToken,
+  checkPermission('invoices', 'update'),
+  validate({ body: voidInvoiceSchema }),
+  voidInvoice
+);
 
 router.post(
   '/:id/payment',

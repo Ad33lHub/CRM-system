@@ -29,20 +29,35 @@ const devFormat = combine(
   colorize({ all: true }),
   timestamp({ format: 'HH:mm:ss' }),
   errors({ stack: true }),
-  printf(({ level, message, timestamp: ts, requestId, stack, ...meta }) => {
-    const rid = requestId ? ` [${requestId}]` : '';
-    const extra = Object.keys(meta).length
-      ? '\n  ' + JSON.stringify(meta, null, 2).replace(/\n/g, '\n  ')
-      : '';
-    const stackStr = stack ? `\n${stack}` : '';
-    return `${ts}${rid} ${level}: ${message}${extra}${stackStr}`;
-  })
+  printf(
+    ({
+      level,
+      message,
+      timestamp: ts,
+      requestId,
+      stack,
+      // Drop the boilerplate fields so the console stays clean
+      service,
+      environment,
+      hostname,
+      ...meta
+    }) => {
+      const rid = requestId ? ` [${requestId}]` : '';
+      const extra = Object.keys(meta).length
+        ? '\n  ' + JSON.stringify(meta, null, 2).replace(/\n/g, '\n  ')
+        : '';
+      const stackStr = stack ? `\n${stack}` : '';
+      return `${ts}${rid} ${level}: ${message}${extra}${stackStr}`;
+    }
+  )
 );
 
 // ── Transports ───────────────────────────────────────────────────────────────
 
+// Console shows errors only; info/warn/http still go to the rotating log files.
+// Override with CONSOLE_LOG_LEVEL (e.g. 'info') when you need more detail.
 const consoleTransport = new transports.Console({
-  level: isProd ? 'warn' : 'debug',
+  level: config.CONSOLE_LOG_LEVEL || 'error',
   format: isProd ? prodFormat : devFormat,
 });
 

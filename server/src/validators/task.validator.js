@@ -4,8 +4,9 @@ const OBJECT_ID = z
   .string()
   .trim()
   .regex(/^[0-9a-fA-F]{24}$/, 'Invalid ID format');
-const STATUSES = ['todo', 'in_progress', 'in_review', 'testing', 'done', 'blocked', 'cancelled'];
-const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+// Must match the Task model enums exactly.
+const STATUSES = ['todo', 'in_progress', 'review', 'testing', 'done'];
+const PRIORITIES = ['low', 'medium', 'high', 'critical'];
 
 export const createTaskSchema = z.object({
   title: z.string().trim().min(2).max(200),
@@ -14,7 +15,7 @@ export const createTaskSchema = z.object({
   assignedTo: OBJECT_ID.optional(),
   status: z.enum(STATUSES).default('todo'),
   priority: z.enum(PRIORITIES).default('medium'),
-  estimateHours: z.coerce.number().nonnegative().max(1000).optional(),
+  estimatedHours: z.coerce.number().nonnegative().max(1000).optional(),
   dueDate: z.coerce.date().optional(),
   tags: z.array(z.string().trim().max(50)).max(10).default([]),
 });
@@ -25,7 +26,7 @@ export const updateTaskSchema = z.object({
   assignedTo: OBJECT_ID.optional(),
   status: z.enum(STATUSES).optional(),
   priority: z.enum(PRIORITIES).optional(),
-  estimateHours: z.coerce.number().nonnegative().max(1000).optional(),
+  estimatedHours: z.coerce.number().nonnegative().max(1000).optional(),
   dueDate: z.coerce.date().optional(),
   tags: z.array(z.string().trim().max(50)).max(10).optional(),
 });

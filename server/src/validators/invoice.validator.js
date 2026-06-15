@@ -38,6 +38,9 @@ export const addPaymentSchema = z.object({
   amount: z.coerce.number().positive('Payment amount must be positive'),
   paymentMethod: z.enum(PAYMENT_METHODS).optional(),
   paymentNotes: z.string().trim().max(500).optional(),
+  paymentProof: z
+    .union([z.string().trim().url(), z.object({ url: z.string().url() }).passthrough()])
+    .optional(),
 });
 
 export const voidInvoiceSchema = z.object({

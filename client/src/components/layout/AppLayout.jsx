@@ -51,7 +51,7 @@ export default function AppLayout() {
         <TopBar openMobileSidebar={openMobileSidebar} />
 
         {/* Scrollable content area */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto bg-[#0f172a]" style={{ padding: '32px 40px' }}>
           <Outlet />
         </main>
       </div>

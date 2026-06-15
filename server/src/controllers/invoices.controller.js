@@ -6,19 +6,47 @@ import { queueEmail } from '../services/email.service.js';
 import { createNotification } from '../services/notification.service.js';
 import { clearRevenueCache } from '../services/revenueAnalytics.service.js';
 import { clearClientCache } from '../services/clientAnalytics.service.js';
+import { exportInvoicePdf } from '../services/exportService.js';
+import config from '../config/env.js';
 import logger from '../utils/logger.js';
+
+const CLIENT_FIELDS = 'companyName industry contacts';
+const PROJECT_FIELDS = 'name status';
+
+// Populate the references the UI renders. Reused by every read/write response.
+function populateInvoice(query) {
+  return query
+    .populate('client', CLIENT_FIELDS)
+    .populate('project', PROJECT_FIELDS)
+    .populate('createdBy', 'firstName lastName name email')
+    .populate('approvedBy', 'firstName lastName name');
+}
+
+// Resolve the client's billing email — Client has no top-level email, only contacts[].
+function resolveClientContact(client) {
+  if (!client) return { name: 'Client', email: null };
+  const contacts = client.contacts || [];
+  const primary = contacts.find((c) => c.isPrimary && c.email) || contacts.find((c) => c.email);
+  return {
+    name: primary?.name || client.companyName || 'Client',
+    email: primary?.email || null,
+  };
+}
+
+function portalUrl(invoiceId) {
+  return `${config.CLIENT_URL || ''}/portal/invoices/${invoiceId}`;
+}
 
 async function triggerPaymentEmails(invoice, amountPaid, recordedBy) {
   try {
     const populated = await Invoice.findById(invoice._id)
-      .populate('client', 'name email')
+      .populate('client', 'companyName contacts')
       .populate('createdBy', 'name firstName lastName')
       .lean();
 
     if (!populated) return;
 
-    const clientName = populated.client?.name || 'Client';
-    const clientEmail = populated.client?.email;
+    const { name: clientName, email: clientEmail } = resolveClientContact(populated.client);
     const remaining = populated.total - populated.paidAmount;
     const remainingColor = remaining <= 0 ? '059669' : 'DC2626';
 
@@ -35,7 +63,7 @@ async function triggerPaymentEmails(invoice, amountPaid, recordedBy) {
           remaining: Math.max(0, remaining).toLocaleString(),
           remainingColor,
           paymentDate: new Date().toLocaleDateString('en-PK'),
-          invoiceUrl: `${process.env.APP_URL || ''}/portal/invoices/${populated._id}`,
+          invoiceUrl: portalUrl(populated._id),
           unsubscribeUrl: '',
         },
       });
@@ -58,7 +86,7 @@ async function triggerPaymentEmails(invoice, amountPaid, recordedBy) {
             verifiedBy: recorderName,
             paymentDate: new Date().toLocaleDateString('en-PK'),
             companyName: 'Verixsoft',
-            invoiceUrl: `${process.env.APP_URL || ''}/portal/invoices/${populated._id}`,
+            invoiceUrl: portalUrl(populated._id),
             unsubscribeUrl: '',
           },
         });
@@ -70,7 +98,11 @@ async function triggerPaymentEmails(invoice, amountPaid, recordedBy) {
         recipient: populated.createdBy._id || populated.createdBy,
         type: 'payment',
         title: `Payment received — ${populated.invoiceNumber}`,
-        message: `${clientName} paid ${populated.currency} ${amountPaid.toLocaleString()}. ${remaining > 0 ? `Remaining: ${populated.currency} ${remaining.toLocaleString()}` : 'Fully paid!'}`,
+        message: `${clientName} paid ${populated.currency} ${amountPaid.toLocaleString()}. ${
+          remaining > 0
+            ? `Remaining: ${populated.currency} ${remaining.toLocaleString()}`
+            : 'Fully paid!'
+        }`,
         link: `/invoices/${populated._id}`,
         groupKey: `invoice:${populated._id}:payment`,
         priority: remaining <= 0 ? 'high' : 'normal',
@@ -87,79 +119,205 @@ export const listInvoices = asyncHandler(async (req, res) => {
   if (req.query.status && req.query.status !== 'all') {
     filter.status = req.query.status;
   }
+  if (req.query.clientId) {
+    filter.client = req.query.clientId;
+  }
   if (req.user && req.user.role === 'client') {
     filter.client = req.user.clientId;
   }
   const [items, total] = await Promise.all([
-    Invoice.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    populateInvoice(Invoice.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit)),
     Invoice.countDocuments(filter),
   ]);
   return paginatedResponse(res, items, page, limit, total, 'Invoice list fetched successfully');
 });
 
 export const getInvoice = asyncHandler(async (req, res) => {
-  const doc = await Invoice.findById(req.params.id);
+  const doc = await populateInvoice(Invoice.findById(req.params.id));
   if (!doc) return errorResponse(res, 'Invoice not found', 404);
   return successResponse(res, doc, 'Invoice fetched successfully');
 });
 
 export const createInvoice = asyncHandler(async (req, res) => {
-  const doc = await Invoice.create(req.body);
+  // Server owns numbering, totals and ownership — never trust the client for these.
+  const { client, project, lineItems, taxPercent, discountPercent, currency, dueDate, notes } =
+    req.body;
+
+  const created = await Invoice.create({
+    client,
+    project: project || null,
+    lineItems,
+    taxPercent,
+    discountPercent,
+    currency,
+    dueDate,
+    notes,
+    createdBy: req.user._id,
+  });
+
+  const doc = await populateInvoice(Invoice.findById(created._id));
+  clearRevenueCache().catch(() => {});
   return successResponse(res, doc, 'Invoice created successfully', 201);
 });
 
 export const updateInvoice = asyncHandler(async (req, res) => {
-  const doc = await Invoice.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
+  const invoice = await Invoice.findById(req.params.id);
+  if (!invoice) return errorResponse(res, 'Invoice not found', 404);
+
+  // Only editable while it is still a draft.
+  if (invoice.status !== 'draft') {
+    return errorResponse(res, 'Only draft invoices can be edited', 409);
+  }
+
+  const editable = ['lineItems', 'taxPercent', 'discountPercent', 'currency', 'dueDate', 'notes'];
+  editable.forEach((field) => {
+    if (req.body[field] !== undefined) invoice[field] = req.body[field];
   });
-  if (!doc) return errorResponse(res, 'Invoice not found', 404);
+  await invoice.save(); // re-runs the pre-validate totals hook
+
+  const doc = await populateInvoice(Invoice.findById(invoice._id));
+  clearRevenueCache().catch(() => {});
   return successResponse(res, doc, 'Invoice updated successfully');
 });
 
 export const deleteInvoice = asyncHandler(async (req, res) => {
   const doc = await Invoice.findByIdAndDelete(req.params.id);
   if (!doc) return errorResponse(res, 'Invoice not found', 404);
+  clearRevenueCache().catch(() => {});
   return successResponse(res, { id: req.params.id }, 'Invoice deleted successfully');
 });
 
 export const approveInvoice = asyncHandler(async (req, res) => {
-  const doc = await Invoice.findByIdAndUpdate(
-    req.params.id,
-    { status: 'sent', approvedBy: req.user._id, approvedAt: new Date() },
-    { new: true }
-  );
-  if (!doc) return errorResponse(res, 'Invoice not found', 404);
+  const invoice = await Invoice.findById(req.params.id);
+  if (!invoice) return errorResponse(res, 'Invoice not found', 404);
+
+  invoice.approvedBy = req.user._id;
+  invoice.approvedAt = new Date();
+  await invoice.save();
+
+  const doc = await populateInvoice(Invoice.findById(invoice._id));
   return successResponse(res, doc, 'Invoice approved successfully');
 });
 
+/**
+ * Send an invoice to the client.
+ * Transitions draft/overdue → sent, stamps sentAt, emails the client's
+ * primary contact and notifies the creator.
+ */
+export const sendInvoice = asyncHandler(async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id).populate('client', 'companyName contacts');
+  if (!invoice) return errorResponse(res, 'Invoice not found', 404);
+
+  if (['paid', 'void'].includes(invoice.status)) {
+    return errorResponse(res, `Cannot send a ${invoice.status} invoice`, 409);
+  }
+
+  const { name: clientName, email: clientEmail } = resolveClientContact(invoice.client);
+  if (!clientEmail) {
+    return errorResponse(
+      res,
+      'Client has no contact email on file — add a contact before sending',
+      422
+    );
+  }
+
+  invoice.status = 'sent';
+  invoice.sentAt = new Date();
+  await invoice.save();
+
+  await queueEmail({
+    to: clientEmail,
+    subject: `Invoice ${invoice.invoiceNumber} from Verixsoft`,
+    templateName: 'invoiceSent',
+    templateVars: {
+      clientName,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.amountDue.toLocaleString(),
+      currency: invoice.currency || 'PKR',
+      dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-PK') : '—',
+      invoiceUrl: portalUrl(invoice._id),
+      unsubscribeUrl: '',
+    },
+  });
+
+  if (invoice.createdBy) {
+    createNotification({
+      recipient: invoice.createdBy,
+      type: 'invoice',
+      title: `Invoice ${invoice.invoiceNumber} sent`,
+      message: `Sent to ${clientName} (${clientEmail}).`,
+      link: `/invoices/${invoice._id}`,
+      groupKey: `invoice:${invoice._id}:sent`,
+    }).catch(() => {});
+  }
+
+  const doc = await populateInvoice(Invoice.findById(invoice._id));
+  return successResponse(res, doc, `Invoice sent to ${clientEmail}`);
+});
+
+export const voidInvoice = asyncHandler(async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id);
+  if (!invoice) return errorResponse(res, 'Invoice not found', 404);
+
+  if (invoice.status === 'paid') {
+    return errorResponse(res, 'A paid invoice cannot be voided', 409);
+  }
+
+  invoice.status = 'void';
+  invoice.voidReason = req.body.reason;
+  invoice.voidedAt = new Date();
+  await invoice.save();
+
+  const doc = await populateInvoice(Invoice.findById(invoice._id));
+  clearRevenueCache().catch(() => {});
+  return successResponse(res, doc, 'Invoice voided successfully');
+});
+
 export const recordPayment = asyncHandler(async (req, res) => {
-  const { amount, paymentMethod, paymentNotes } = req.body;
+  const { amount, paymentMethod, paymentNotes, paymentProof } = req.body;
   if (!amount || amount <= 0) return errorResponse(res, 'Invalid payment amount', 400);
 
   const invoice = await Invoice.findById(req.params.id);
   if (!invoice) return errorResponse(res, 'Invoice not found', 404);
+  if (invoice.status === 'void') return errorResponse(res, 'Cannot pay a void invoice', 409);
+  if (invoice.status === 'draft') {
+    return errorResponse(res, 'Send the invoice before recording a payment', 409);
+  }
 
-  const newPaid = (invoice.paidAmount || 0) + amount;
-  const status = newPaid >= invoice.total ? 'paid' : 'partially_paid';
+  const newPaid = Math.round(((invoice.paidAmount || 0) + amount) * 100) / 100;
+  // Cap at invoice total — amountDue should never go negative.
+  const cappedPaid = Math.min(newPaid, invoice.total);
+  const status = cappedPaid >= invoice.total ? 'paid' : 'partially_paid';
 
-  const doc = await Invoice.findByIdAndUpdate(
-    req.params.id,
-    {
-      paidAmount: newPaid,
-      status,
-      paymentMethod: paymentMethod || invoice.paymentMethod,
-      paymentNotes: paymentNotes || invoice.paymentNotes,
-      ...(status === 'paid' ? { paidAt: new Date() } : {}),
-    },
-    { new: true }
-  );
+  invoice.paidAmount = cappedPaid;
+  invoice.status = status;
+  if (paymentMethod) invoice.paymentMethod = paymentMethod;
+  if (paymentNotes) invoice.paymentNotes = paymentNotes;
+  if (paymentProof)
+    invoice.paymentProof = typeof paymentProof === 'string' ? paymentProof : paymentProof.url;
+  if (status === 'paid') invoice.paidAt = new Date();
+  await invoice.save();
 
-  triggerPaymentEmails(doc, amount, req.user).catch(() => {});
+  triggerPaymentEmails(invoice, amount, req.user).catch(() => {});
   clearRevenueCache().catch(() => {});
-  clearClientCache(doc.client?.toString()).catch(() => {});
+  clearClientCache(invoice.client?.toString()).catch(() => {});
 
+  const doc = await populateInvoice(Invoice.findById(invoice._id));
   return successResponse(res, doc, 'Payment recorded successfully');
+});
+
+export const generateInvoicePdf = asyncHandler(async (req, res) => {
+  const invoice = await populateInvoice(Invoice.findById(req.params.id)).lean();
+  if (!invoice) return errorResponse(res, 'Invoice not found', 404);
+
+  const generatedBy = req.user
+    ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.name || 'System'
+    : 'System';
+  const buffer = await exportInvoicePdf(invoice, generatedBy);
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+  return res.send(buffer);
 });
 
 export default {
@@ -169,5 +327,8 @@ export default {
   updateInvoice,
   deleteInvoice,
   approveInvoice,
+  sendInvoice,
+  voidInvoice,
   recordPayment,
+  generateInvoicePdf,
 };

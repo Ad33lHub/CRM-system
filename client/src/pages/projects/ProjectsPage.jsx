@@ -29,13 +29,18 @@ export default function ProjectsPage() {
     }
   };
 
-  const getStatusBadgeVariant = (status) => {
+  const getStatusBadgeStyle = (status) => {
     switch (status) {
-      case 'active': return 'default';
-      case 'on_hold': return 'secondary';
-      case 'completed': return 'success';
-      case 'cancelled': return 'destructive';
-      default: return 'outline';
+      case 'active':
+        return { background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' };
+      case 'completed':
+        return { background: 'rgba(74, 222, 128, 0.15)', color: '#4ade80' };
+      case 'on_hold':
+        return { background: 'rgba(250, 204, 21, 0.15)', color: '#facc15' };
+      case 'cancelled':
+        return { background: 'rgba(248, 113, 113, 0.15)', color: '#f87171' };
+      default:
+        return { background: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8' };
     }
   };
 
@@ -46,7 +51,7 @@ export default function ProjectsPage() {
         subtitle="Manage software house projects, milestones, and deliverables"
         actions={
           canCreate && (
-            <Button onClick={() => navigate('/projects/new')} className="gap-2">
+            <Button onClick={() => navigate('/projects/new')} className="btn-primary-cta gap-2">
               <Plus className="h-4 w-4" />
               New Project
             </Button>
@@ -72,24 +77,24 @@ export default function ProjectsPage() {
       {isLoading ? (
         <div className="text-center py-12 text-slate-400">Loading projects workspace...</div>
       ) : projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-900 border rounded-xl text-center">
+        <div className="flex flex-col items-center justify-center py-16 bg-[#1a2332] border border-[#1e293b] rounded-xl text-center">
           <FolderKanban className="h-12 w-12 text-slate-300 mb-3" />
           <h4 className="font-bold text-slate-700 dark:text-slate-300">No Projects Scheduled</h4>
           <p className="text-sm text-slate-400 mt-1 max-w-sm">
             Launch a new project workspace to begin managing team assignments, design reviews, and sprint tasks.
           </p>
           {canCreate && (
-            <Button size="sm" onClick={() => navigate('/projects/new')} className="mt-4">
+            <Button size="sm" onClick={() => navigate('/projects/new')} className="btn-primary-cta mt-4">
               Add First Project
             </Button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-[24px]">
           {projects.map((project) => (
             <Card
               key={project.id || project._id}
-              className="hover:shadow-md transition-shadow cursor-pointer border border-slate-200 dark:border-slate-800"
+              className="hover:shadow-md transition-shadow cursor-pointer border border-[#1e293b]"
               onClick={() => navigate(`/projects/${project.id || project._id}`)}
             >
               <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -97,7 +102,17 @@ export default function ProjectsPage() {
                   <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${getHealthDotColor(project.health)}`} title={`Health: ${project.health}`} />
                   <CardTitle className="text-base font-bold truncate max-w-[180px]">{project.name}</CardTitle>
                 </div>
-                <Badge variant={getStatusBadgeVariant(project.status)} className="capitalize">
+                <Badge
+                  style={{
+                    borderRadius: '6px',
+                    padding: '2px 10px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    border: 'none',
+                    ...getStatusBadgeStyle(project.status)
+                  }}
+                  className="capitalize"
+                >
                   {project.status}
                 </Badge>
               </CardHeader>
@@ -106,24 +121,25 @@ export default function ProjectsPage() {
                   {project.description || 'No description provided.'}
                 </p>
 
-                <div className="grid grid-cols-2 gap-2 text-xs border-t pt-3 border-slate-100 dark:border-slate-800/80">
-                  <div className="flex items-center gap-1.5 text-slate-400">
-                    <Calendar className="h-3.5 w-3.5 shrink-0" />
-                    <span>{project.deadline ? new Date(project.deadline).toLocaleDateString() : 'No date'}</span>
+                <div className="space-y-3 pt-3 border-t border-[#1e293b] mt-3 text-[12px]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748b]">Deadline</span>
+                    <span className="font-medium text-right text-[#f8fafc]">
+                      {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'No date'}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-slate-400 justify-end">
-                    <DollarSign className="h-3.5 w-3.5 shrink-0" />
-                    <span>{(project.budget?.estimated || 0).toLocaleString()} {project.budget?.currency || 'PKR'}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748b]">Budget</span>
+                    <span className="font-medium text-right text-[#f8fafc]">
+                      {(project.budget?.estimated || 0).toLocaleString()} {project.budget?.currency || 'PKR'}
+                    </span>
                   </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] text-slate-400">
-                    <span>Progression Rate</span>
-                    <span className="font-semibold">{project.completionPercent || 0}%</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#64748b]">Progression Rate</span>
+                    <span className="font-semibold text-right text-[#f8fafc]">{project.completionPercent || 0}%</span>
                   </div>
-                  <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-600 rounded-full" style={{ width: `${project.completionPercent || 0}%` }} />
+                  <div className="h-[4px] w-full bg-[#1e293b] rounded-[2px] overflow-hidden">
+                    <div className="h-full bg-[#3b82f6] rounded-[2px]" style={{ width: `${project.completionPercent || 0}%` }} />
                   </div>
                 </div>
               </CardContent>

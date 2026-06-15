@@ -11,6 +11,13 @@ export default function PresencePage() {
   });
   const presenceList = data?.data || [];
 
+  const getStatusStyle = (isOnline) => {
+    if (isOnline) {
+      return { background: 'rgba(34, 197, 94, 0.12)', color: '#4ade80' };
+    }
+    return { background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' };
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -18,41 +25,74 @@ export default function PresencePage() {
         subtitle="Supervise live socket connections, administrator presence logs, and active staff statuses"
       />
 
-      <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-md">
-        <CardHeader className="pb-3 border-b">
-          <CardTitle className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <Users className="h-5 w-5 text-blue-500" />
+      <Card className="border border-[#1e293b] bg-[#1a2332]">
+        <CardHeader className="pb-0">
+          <CardTitle 
+            style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}
+            className="text-slate-100 flex items-center"
+          >
+            <Users style={{ marginRight: '8px', width: '20px', height: '20px' }} className="text-[#3b82f6]" />
             <span>Staff Presence Register</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="divide-y divide-slate-100 dark:divide-slate-800 p-0 text-xs">
+        <CardContent className="p-0 text-xs">
           {isLoading ? (
             <div className="text-center py-12 text-slate-400">Loading presence list...</div>
           ) : presenceList.length === 0 ? (
             <div className="text-center py-12 text-slate-400">No active sessions found.</div>
           ) : (
             presenceList.map((session, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/10">
-                <div className="flex items-center gap-3">
+              <div 
+                key={idx} 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '14px 0',
+                  borderBottom: '1px solid #0f172a'
+                }}
+              >
+                {/* Avatar Placeholder / Circle */}
+                <div 
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    backgroundColor: '#1e293b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginRight: '12px',
+                    overflow: 'hidden'
+                  }}
+                >
                   {session.user?.avatar ? (
-                    <img src={session.user.avatar} alt={session.user.firstName} className="h-8 w-8 rounded-full object-cover" />
+                    <img src={session.user.avatar} alt={session.user.firstName || 'User'} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-[10px] text-slate-600 dark:text-slate-300">
-                      {session.user?.firstName?.[0]}{session.user?.lastName?.[0]}
-                    </div>
+                    <span className="font-bold text-xs text-slate-400">
+                      {session.user?.firstName?.[0] || 'U'}{session.user?.lastName?.[0] || 'S'}
+                    </span>
                   )}
-                  <div className="min-w-0">
-                    <div className="font-bold text-slate-700 dark:text-slate-300">
-                      {session.user?.firstName} {session.user?.lastName}
-                    </div>
-                    <div className="text-[10px] text-slate-400 truncate font-semibold uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
-                      <Shield className="h-3.5 w-3.5" />
-                      <span>{session.user?.role?.replace('_', ' ')}</span>
-                    </div>
+                </div>
+
+                {/* Name / Info */}
+                <div className="flex items-center gap-3">
+                  <div className="font-bold text-slate-200 text-sm">
+                    {session.user ? `${session.user.firstName || ''} ${session.user.lastName || ''}` : 'Unknown Staff Session'}
+                  </div>
+                  
+                  {/* Shield Role badge */}
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400 bg-[#1e293b]/60 px-2 py-0.5 rounded border border-[#1e293b]">
+                    <Shield className="h-3.5 w-3.5 text-[#3b82f6]" />
+                    <span className="capitalize">{session.user?.role?.replace('_', ' ') || 'Staff'}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                {/* Spacer */}
+                <div className="flex-1" />
+
+                {/* Right side information */}
+                <div className="flex items-center gap-4">
                   {session.ipAddress && (
                     <span className="font-mono text-slate-400 text-[10px] hidden sm:inline">{session.ipAddress}</span>
                   )}
@@ -61,19 +101,22 @@ export default function PresencePage() {
                       Seen: {new Date(session.lastActive).toLocaleTimeString()}
                     </span>
                   )}
-                  <Badge className="gap-1.5 pl-2 py-0.5">
-                    {session.isOnline ? (
-                      <>
-                        <Wifi className="h-3 w-3 text-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-bold text-emerald-500">Connected</span>
-                      </>
-                    ) : (
-                      <>
-                        <WifiOff className="h-3 w-3 text-slate-400" />
-                        <span className="text-[10px] font-bold text-slate-400">Idle</span>
-                      </>
-                    )}
-                  </Badge>
+                  
+                  {/* Status Badge */}
+                  <div 
+                    style={{
+                      borderRadius: '6px',
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      ...getStatusStyle(session.isOnline)
+                    }}
+                  >
+                    {session.isOnline ? 'Available' : 'Idle'}
+                  </div>
                 </div>
               </div>
             ))

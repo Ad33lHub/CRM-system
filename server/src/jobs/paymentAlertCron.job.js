@@ -3,6 +3,7 @@ import Invoice from '../models/Invoice.model.js';
 import { createNotification } from '../services/notification.service.js';
 import { queueEmail } from '../services/email.service.js';
 import { setEx, exists } from '../config/redis.js';
+import config from '../config/env.js';
 import logger from '../utils/logger.js';
 
 const TZ = 'Asia/Karachi';
@@ -10,6 +11,21 @@ const DEDUP_TTL_SECONDS = 86400; // 24 hours
 
 function dedupKey(invoiceId, stage) {
   return `payment_alert:${invoiceId}:${stage}`;
+}
+
+// Client has no top-level name/email — resolve from its contacts[].
+function resolveClientContact(client) {
+  if (!client) return { name: 'Client', email: null };
+  const contacts = client.contacts || [];
+  const primary = contacts.find((c) => c.isPrimary && c.email) || contacts.find((c) => c.email);
+  return {
+    name: primary?.name || client.companyName || 'Client',
+    email: primary?.email || null,
+  };
+}
+
+function portalUrl(invoiceId) {
+  return `${config.CLIENT_URL || ''}/portal/invoices/${invoiceId}`;
 }
 
 async function isDuped(key) {
@@ -24,9 +40,7 @@ async function sendPaymentAlert(invoice, stage, daysOverdue) {
   const key = dedupKey(invoice._id, stage);
   if (await isDuped(key)) return;
 
-  const client = invoice.client;
-  const clientName = client?.name || 'Client';
-  const clientEmail = client?.email;
+  const { name: clientName, email: clientEmail } = resolveClientContact(invoice.client);
 
   const stageLabels = { '1d': '1 day', '3d': '3 days', '7d': '7 days' };
   const stagePriorities = { '1d': 'high', '3d': 'high', '7d': 'urgent' };
@@ -57,7 +71,7 @@ async function sendPaymentAlert(invoice, stage, daysOverdue) {
         currency: invoice.currency || 'PKR',
         dueDate: new Date(invoice.dueDate).toLocaleDateString('en-PK'),
         daysOverdue: String(daysOverdue),
-        payNowUrl: `${process.env.APP_URL || ''}/portal/invoices/${invoice._id}`,
+        payNowUrl: portalUrl(invoice._id),
         unsubscribeUrl: '',
       },
     });
@@ -79,7 +93,7 @@ async function processOverdueInvoices() {
     status: { $in: ['sent', 'partially_paid', 'overdue'] },
     dueDate: { $lt: now },
   })
-    .populate('client', 'name email')
+    .populate('client', 'companyName contacts')
     .lean();
 
   if (overdueInvoices.length === 0) return;
@@ -111,7 +125,7 @@ async function processPreDueReminders() {
     status: { $in: ['sent', 'partially_paid'] },
     dueDate: { $gte: monday, $lte: nextFriday },
   })
-    .populate('client', 'name email')
+    .populate('client', 'companyName contacts')
     .lean();
 
   if (upcoming.length === 0) return;
@@ -123,8 +137,7 @@ async function processPreDueReminders() {
 
     const dueDate = new Date(invoice.dueDate);
     const daysUntilDue = Math.ceil((dueDate - today) / 86400000);
-    const clientName = invoice.client?.name || 'Client';
-    const clientEmail = invoice.client?.email;
+    const { name: clientName, email: clientEmail } = resolveClientContact(invoice.client);
 
     if (invoice.createdBy) {
       await createNotification({
@@ -149,7 +162,7 @@ async function processPreDueReminders() {
           amount: invoice.total.toLocaleString(),
           currency: invoice.currency || 'PKR',
           dueDate: dueDate.toLocaleDateString('en-PK'),
-          invoiceUrl: `${process.env.APP_URL || ''}/portal/invoices/${invoice._id}`,
+          invoiceUrl: portalUrl(invoice._id),
           unsubscribeUrl: '',
         },
       });

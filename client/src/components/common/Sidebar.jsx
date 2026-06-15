@@ -57,8 +57,10 @@ export default function Sidebar({
   ).length;
 
   // Sum unread counts from channels
-  const channels = channelsData || [];
-  const unreadChatCount = channels.reduce((sum, ch) => sum + (ch.unreadCount || 0), 0);
+  const channels = channelsData?.data || [];
+  const unreadChatCount = Array.isArray(channels)
+    ? channels.reduce((sum, ch) => sum + (ch.unreadCount || 0), 0)
+    : 0;
 
   const handleLogout = async () => {
     try {
@@ -211,7 +213,7 @@ export default function Sidebar({
   const sidebarContent = (
     <aside
       className={cn(
-        'h-full flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-100 transition-all duration-300 z-30',
+        'h-full flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-100 transition-all duration-300 z-30 shrink-0',
         // Desktop & Tablet
         'hidden md:flex',
         isCollapsed ? 'w-[72px]' : 'w-[260px]'
@@ -233,7 +235,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation links */}
-      <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-4 py-6 space-y-1 sidebar-nav">
         {filteredItems.map((item) => {
           const active = isActive(item.to);
           const Icon = item.icon;
@@ -242,10 +244,11 @@ export default function Sidebar({
             <Link
               key={item.to}
               to={item.to}
+              style={{ padding: '16px 12px' }}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group relative',
+                'flex items-center gap-3 rounded-[8px] text-sm font-medium transition-all group relative',
                 active
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20'
+                  ? 'bg-[#3b82f6] text-white shadow-md shadow-blue-900/20'
                   : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
               )}
             >
@@ -274,7 +277,7 @@ export default function Sidebar({
       </nav>
 
       {/* Bottom Profile / Control Section */}
-      <div className="p-4 border-t border-slate-800/60 space-y-4">
+      <div className="sidebar-user-badge flex-col gap-4">
         {/* User Card */}
         {user && !isCollapsed && (
           <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/30 border border-slate-800/50">
@@ -382,7 +385,7 @@ export default function Sidebar({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 space-y-1 sidebar-nav">
           {menuItems
             .filter((item) => isRoleAllowed(item.roles))
             .map((item) => {
@@ -394,10 +397,11 @@ export default function Sidebar({
                   key={item.to}
                   to={item.to}
                   onClick={handleNavClick}
+                  style={{ padding: '16px 12px' }}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                    'flex items-center gap-3 rounded-[8px] text-sm font-medium transition-all',
                     active
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20'
+                      ? 'bg-[#3b82f6] text-white shadow-md shadow-blue-900/20'
                       : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
                   )}
                 >
@@ -414,7 +418,7 @@ export default function Sidebar({
         </nav>
 
         {/* Bottom section */}
-        <div className="p-4 border-t border-slate-800/60 space-y-4">
+        <div className="sidebar-user-badge flex-col gap-4">
           {user && (
             <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/30 border border-slate-800/50">
               <Avatar className="h-10 w-10 border border-slate-700/50">

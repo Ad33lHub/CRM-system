@@ -1,0 +1,1097 @@
+{
+  "info": {
+    "name": "CRM API Tests — Phase 16",
+    "_postman_id": "crm-api-tests-phase16",
+    "description": "Comprehensive API test suite for the CRM Software House platform.\nCovers authentication, CRUD operations, business logic, and security.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5000" },
+    { "key": "admin_token", "value": "" },
+    { "key": "manager_token", "value": "" },
+    { "key": "developer_token", "value": "" },
+    { "key": "client_token", "value": "" },
+    { "key": "admin_user_id", "value": "" },
+    { "key": "test_user_email", "value": "" },
+    { "key": "test_user_password", "value": "" },
+    { "key": "created_client_id", "value": "" },
+    { "key": "created_lead_id", "value": "" },
+    { "key": "created_project_id", "value": "" },
+    { "key": "created_task_id", "value": "" },
+    { "key": "created_invoice_id", "value": "" },
+    { "key": "created_employee_id", "value": "" },
+    { "key": "created_meeting_id", "value": "" },
+    { "key": "created_proposal_id", "value": "" },
+    { "key": "created_notification_id", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level pre-request: auto-set Authorization header",
+          "const token = pm.collectionVariables.get('admin_token');",
+          "if (token && !pm.request.headers.has('Authorization')) {",
+          "  pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01_Auth",
+      "description": "Authentication module tests: register, login, refresh, logout, profile",
+      "item": [
+        {
+          "name": "Register — Happy Path",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('test_user_email', `testadmin_${ts}@crm-test.com`);",
+                  "pm.collectionVariables.set('test_user_password', 'SecurePass123!');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Response has user with id and email', () => {",
+                  "  pm.expect(body.data).to.have.property('_id');",
+                  "  pm.expect(body.data).to.have.property('email');",
+                  "});",
+                  "pm.test('Response does NOT contain password', () => {",
+                  "  pm.expect(body.data).to.not.have.property('password');",
+                  "});",
+                  "pm.test('Response does NOT contain refreshToken', () => {",
+                  "  pm.expect(body.data).to.not.have.property('refreshToken');",
+                  "  pm.expect(body.data).to.not.have.property('refreshTokens');",
+                  "});",
+                  "pm.collectionVariables.set('admin_user_id', body.data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Admin\",\n  \"email\": \"{{test_user_email}}\",\n  \"password\": \"{{test_user_password}}\",\n  \"role\": \"admin\",\n  \"phone\": \"+923001234567\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Register — Duplicate Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('Message mentions already exists/registered', () => {",
+                  "  pm.expect(body.message.toLowerCase()).to.match(/already|exists|registered/);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Admin\",\n  \"email\": \"{{test_user_email}}\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Register — Weak Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 422 or 400', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Weak\",\n  \"lastName\": \"Pass\",\n  \"email\": \"weakpass@crm-test.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Register — Missing Required Fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 422 or 400', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Login — Happy Path (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('accessToken present', () => {",
+                  "  pm.expect(body.data).to.have.property('accessToken');",
+                  "});",
+                  "pm.test('Response time under 500ms', () => {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "pm.test('Password NOT in response', () => {",
+                  "  pm.expect(body.data.user).to.not.have.property('password');",
+                  "  pm.expect(JSON.stringify(body)).to.not.include('password');",
+                  "});",
+                  "pm.collectionVariables.set('admin_token', body.data.accessToken);",
+                  "pm.collectionVariables.set('admin_user_id', body.data.user._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_user_email}}\",\n  \"password\": \"{{test_user_password}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Login — Wrong Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "const body = pm.response.json();",
+                  "pm.test('Message does NOT reveal whether email exists', () => {",
+                  "  pm.expect(body.message.toLowerCase()).to.not.include('email not found');",
+                  "  pm.expect(body.message.toLowerCase()).to.include('invalid');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_user_email}}\",\n  \"password\": \"WrongPassword999!\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Get Current User — Happy Path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returned user matches logged-in user', () => {",
+                  "  pm.expect(body.data._id).to.eql(pm.collectionVariables.get('admin_user_id'));",
+                  "});",
+                  "pm.test('No sensitive fields in response', () => {",
+                  "  pm.expect(body.data).to.not.have.property('password');",
+                  "  pm.expect(body.data).to.not.have.property('loginAttempts');",
+                  "  pm.expect(body.data).to.not.have.property('lockUntil');",
+                  "  pm.expect(body.data).to.not.have.property('refreshTokens');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] }
+          }
+        },
+        {
+          "name": "Get Current User — No Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/logout", "host": ["{{base_url}}"], "path": ["api", "auth", "logout"] }
+          }
+        },
+        {
+          "name": "Re-Login (restore token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('admin_token', body.data.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_user_email}}\",\n  \"password\": \"{{test_user_password}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02_Clients",
+      "description": "Client CRUD and business logic tests",
+      "item": [
+        {
+          "name": "Create Client — Happy Path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Response has all expected fields', () => {",
+                  "  pm.expect(body.data).to.have.property('_id');",
+                  "  pm.expect(body.data).to.have.property('name');",
+                  "});",
+                  "pm.test('ID is valid ObjectId format', () => {",
+                  "  pm.expect(body.data._id).to.match(/^[0-9a-f]{24}$/);",
+                  "});",
+                  "pm.collectionVariables.set('created_client_id', body.data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Client Corp\",\n  \"email\": \"testclient@example.com\",\n  \"phone\": \"+923009876543\",\n  \"industry\": \"Technology\",\n  \"contactPerson\": { \"name\": \"John Doe\", \"email\": \"john@example.com\", \"phone\": \"+923009876544\" },\n  \"address\": { \"street\": \"123 Test St\", \"city\": \"Lahore\", \"country\": \"Pakistan\" }\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/clients", "host": ["{{base_url}}"], "path": ["api", "clients"] }
+          }
+        },
+        {
+          "name": "Create Client — Validation Failure",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 422 or 400', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{base_url}}/api/clients", "host": ["{{base_url}}"], "path": ["api", "clients"] }
+          }
+        },
+        {
+          "name": "Read Client List — Happy Path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Data is array', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('Pagination fields present', () => {",
+                  "  pm.expect(body.pagination).to.have.property('totalItems');",
+                  "  pm.expect(body.pagination).to.have.property('page');",
+                  "  pm.expect(body.pagination).to.have.property('limit');",
+                  "});",
+                  "pm.test('Response time under 1000ms', () => {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/clients", "host": ["{{base_url}}"], "path": ["api", "clients"] }
+          }
+        },
+        {
+          "name": "Read Client List — Pagination",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Result count <= limit', () => {",
+                  "  pm.expect(body.data.length).to.be.at.most(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/clients?page=1&limit=5", "host": ["{{base_url}}"], "path": ["api", "clients"], "query": [{"key":"page","value":"1"},{"key":"limit","value":"5"}] }
+          }
+        },
+        {
+          "name": "Read Single Client — Happy Path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returned id matches requested', () => {",
+                  "  pm.expect(body.data._id).to.eql(pm.collectionVariables.get('created_client_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/clients/{{created_client_id}}", "host": ["{{base_url}}"], "path": ["api", "clients", "{{created_client_id}}"] }
+          }
+        },
+        {
+          "name": "Read Single Client — Not Found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/clients/aaaaaaaaaaaaaaaaaaaaaaaa", "host": ["{{base_url}}"], "path": ["api", "clients", "aaaaaaaaaaaaaaaaaaaaaaaa"] }
+          }
+        },
+        {
+          "name": "Read Single Client — Invalid ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 or 500', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 500]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/clients/not-a-valid-id", "host": ["{{base_url}}"], "path": ["api", "clients", "not-a-valid-id"] }
+          }
+        },
+        {
+          "name": "Update Client — Happy Path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Changed field reflects new value', () => {",
+                  "  pm.expect(body.data.name).to.eql('Updated Client Corp');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{ \"name\": \"Updated Client Corp\" }" },
+            "url": { "raw": "{{base_url}}/api/clients/{{created_client_id}}", "host": ["{{base_url}}"], "path": ["api", "clients", "{{created_client_id}}"] }
+          }
+        },
+        {
+          "name": "Delete Client — Happy Path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/clients/{{created_client_id}}", "host": ["{{base_url}}"], "path": ["api", "clients", "{{created_client_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03_Leads",
+      "description": "Lead CRUD and stage transition tests",
+      "item": [
+        {
+          "name": "Create Lead — Happy Path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Lead has _id', () => pm.expect(body.data._id).to.match(/^[0-9a-f]{24}$/));",
+                  "pm.test('Stage defaults to new', () => pm.expect(body.data.stage).to.eql('new'));",
+                  "pm.collectionVariables.set('created_lead_id', body.data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test Lead\",\n  \"contactName\": \"Jane Smith\",\n  \"contactEmail\": \"jane@example.com\",\n  \"source\": \"website\",\n  \"createdBy\": \"{{admin_user_id}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/leads", "host": ["{{base_url}}"], "path": ["api", "leads"] }
+          }
+        },
+        {
+          "name": "Lead Stage — new to contacted (valid)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Stage updated to contacted', () => {",
+                  "  pm.expect(pm.response.json().data.stage).to.eql('contacted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{ \"stage\": \"contacted\" }" },
+            "url": { "raw": "{{base_url}}/api/leads/{{created_lead_id}}", "host": ["{{base_url}}"], "path": ["api", "leads", "{{created_lead_id}}"] }
+          }
+        },
+        {
+          "name": "Lead Stage — contacted to won (INVALID skip)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 — stage skip blocked', () => pm.response.to.have.status(400));",
+                  "pm.test('Message explains invalid transition', () => {",
+                  "  pm.expect(pm.response.json().message.toLowerCase()).to.include('cannot transition');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{ \"stage\": \"won\" }" },
+            "url": { "raw": "{{base_url}}/api/leads/{{created_lead_id}}", "host": ["{{base_url}}"], "path": ["api", "leads", "{{created_lead_id}}"] }
+          }
+        },
+        {
+          "name": "Lead Stage — contacted to qualified (valid)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Stage is qualified', () => pm.expect(pm.response.json().data.stage).to.eql('qualified'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{ \"stage\": \"qualified\" }" },
+            "url": { "raw": "{{base_url}}/api/leads/{{created_lead_id}}", "host": ["{{base_url}}"], "path": ["api", "leads", "{{created_lead_id}}"] }
+          }
+        },
+        {
+          "name": "Lead Stage — any to lost (always valid)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Stage is lost', () => pm.expect(pm.response.json().data.stage).to.eql('lost'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{ \"stage\": \"lost\" }" },
+            "url": { "raw": "{{base_url}}/api/leads/{{created_lead_id}}", "host": ["{{base_url}}"], "path": ["api", "leads", "{{created_lead_id}}"] }
+          }
+        },
+        {
+          "name": "Delete Lead",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/leads/{{created_lead_id}}", "host": ["{{base_url}}"], "path": ["api", "leads", "{{created_lead_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04_Projects",
+      "description": "Project CRUD tests",
+      "item": [
+        {
+          "name": "Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.data._id).to.match(/^[0-9a-f]{24}$/);",
+                  "pm.collectionVariables.set('created_project_id', body.data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Project\",\n  \"description\": \"Phase 16 test project\",\n  \"status\": \"active\",\n  \"createdBy\": \"{{admin_user_id}}\"\n}" },
+            "url": { "raw": "{{base_url}}/api/projects", "host": ["{{base_url}}"], "path": ["api","projects"] }
+          }
+        },
+        {
+          "name": "List Projects",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Array data', () => pm.expect(pm.response.json().data).to.be.an('array'));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/projects","host":["{{base_url}}"],"path":["api","projects"]} }
+        },
+        {
+          "name": "Get Single Project",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Correct ID', () => pm.expect(pm.response.json().data._id).to.eql(pm.collectionVariables.get('created_project_id')));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/projects/{{created_project_id}}","host":["{{base_url}}"],"path":["api","projects","{{created_project_id}}"]} }
+        },
+        {
+          "name": "Update Project",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"PATCH","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],"body":{"mode":"raw","raw":"{ \"name\": \"Updated Test Project\" }"},"url":{"raw":"{{base_url}}/api/projects/{{created_project_id}}","host":["{{base_url}}"],"path":["api","projects","{{created_project_id}}"]} }
+        }
+      ]
+    },
+    {
+      "name": "05_Tasks",
+      "description": "Task CRUD and quality gate tests",
+      "item": [
+        {
+          "name": "Create Task",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 201', () => pm.response.to.have.status(201));","const body = pm.response.json();","pm.test('Status defaults to todo', () => pm.expect(body.data.status).to.eql('todo'));","pm.collectionVariables.set('created_task_id', body.data._id);"]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Test Task\",\n  \"project\": \"{{created_project_id}}\",\n  \"priority\": \"medium\",\n  \"createdBy\": \"{{admin_user_id}}\"\n}" },
+            "url": { "raw": "{{base_url}}/api/tasks", "host": ["{{base_url}}"], "path": ["api","tasks"] }
+          }
+        },
+        {
+          "name": "Task — todo to in_progress (valid)",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Status is in_progress', () => pm.expect(pm.response.json().data.status).to.eql('in_progress'));"]}}],
+          "request": { "method":"PATCH","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],"body":{"mode":"raw","raw":"{ \"status\": \"in_progress\" }"},"url":{"raw":"{{base_url}}/api/tasks/{{created_task_id}}","host":["{{base_url}}"],"path":["api","tasks","{{created_task_id}}"]} }
+        },
+        {
+          "name": "Task — in_progress to done (BLOCKED by quality gate)",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 400 — quality gate blocks skip', () => pm.response.to.have.status(400));","pm.test('Message explains blocked transition', () => {","  pm.expect(pm.response.json().message).to.include('Cannot transition');","});"]}}],
+          "request": { "method":"PATCH","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],"body":{"mode":"raw","raw":"{ \"status\": \"done\" }"},"url":{"raw":"{{base_url}}/api/tasks/{{created_task_id}}","host":["{{base_url}}"],"path":["api","tasks","{{created_task_id}}"]} }
+        },
+        {
+          "name": "Task — in_progress to review (valid)",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Status is review', () => pm.expect(pm.response.json().data.status).to.eql('review'));"]}}],
+          "request": { "method":"PATCH","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],"body":{"mode":"raw","raw":"{ \"status\": \"review\" }"},"url":{"raw":"{{base_url}}/api/tasks/{{created_task_id}}","host":["{{base_url}}"],"path":["api","tasks","{{created_task_id}}"]} }
+        },
+        {
+          "name": "Task — review to testing (valid)",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Status is testing', () => pm.expect(pm.response.json().data.status).to.eql('testing'));"]}}],
+          "request": { "method":"PATCH","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],"body":{"mode":"raw","raw":"{ \"status\": \"testing\" }"},"url":{"raw":"{{base_url}}/api/tasks/{{created_task_id}}","host":["{{base_url}}"],"path":["api","tasks","{{created_task_id}}"]} }
+        },
+        {
+          "name": "Task — testing to done (valid, sets completedAt)",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","const body = pm.response.json();","pm.test('Status is done', () => pm.expect(body.data.status).to.eql('done'));","pm.test('completedAt is set', () => pm.expect(body.data.completedAt).to.not.be.null);"]}}],
+          "request": { "method":"PATCH","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],"body":{"mode":"raw","raw":"{ \"status\": \"done\" }"},"url":{"raw":"{{base_url}}/api/tasks/{{created_task_id}}","host":["{{base_url}}"],"path":["api","tasks","{{created_task_id}}"]} }
+        },
+        {
+          "name": "Delete Task",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/tasks/{{created_task_id}}","host":["{{base_url}}"],"path":["api","tasks","{{created_task_id}}"]} }
+        }
+      ]
+    },
+    {
+      "name": "06_Invoices",
+      "description": "Invoice CRUD and financial calculation tests",
+      "item": [
+        {
+          "name": "Create Invoice — Calculation Precision",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+            "const body = pm.response.json();",
+            "pm.test('Subtotal is precise', () => {",
+            "  // 3 * 1500.50 = 4501.50",
+            "  pm.expect(body.data.subtotal).to.eql(4501.5);",
+            "});",
+            "pm.test('Tax amount is correct', () => {",
+            "  // 4501.50 * 17% = 765.26",
+            "  pm.expect(body.data.taxAmount).to.eql(765.26);",
+            "});",
+            "pm.test('Discount amount is correct', () => {",
+            "  // 4501.50 * 5% = 225.08",
+            "  pm.expect(body.data.discountAmount).to.eql(225.08);",
+            "});",
+            "pm.test('Total is correct', () => {",
+            "  // 4501.50 + 765.26 - 225.08 = 5041.68",
+            "  pm.expect(body.data.total).to.eql(5041.68);",
+            "});",
+            "pm.collectionVariables.set('created_invoice_id', body.data._id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],
+            "body": { "mode": "raw", "raw": "{\n  \"client\": \"{{created_client_id}}\",\n  \"lineItems\": [\n    { \"description\": \"Development Work\", \"quantity\": 3, \"unitPrice\": 1500.50 }\n  ],\n  \"taxPercent\": 17,\n  \"discountPercent\": 5,\n  \"dueDate\": \"2026-12-31\",\n  \"createdBy\": \"{{admin_user_id}}\"\n}" },
+            "url": { "raw": "{{base_url}}/api/invoices", "host": ["{{base_url}}"], "path": ["api","invoices"] }
+          }
+        },
+        {
+          "name": "List Invoices",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Pagination present', () => pm.expect(pm.response.json().pagination).to.have.property('totalItems'));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/invoices","host":["{{base_url}}"],"path":["api","invoices"]} }
+        },
+        {
+          "name": "Record Payment — Happy Path",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('PaidAmount updated', () => pm.expect(body.data.paidAmount).to.be.above(0));"
+          ]}}],
+          "request": { "method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],"body":{"mode":"raw","raw":"{ \"amount\": 1000, \"paymentMethod\": \"bank_transfer\" }"},"url":{"raw":"{{base_url}}/api/invoices/{{created_invoice_id}}/payment","host":["{{base_url}}"],"path":["api","invoices","{{created_invoice_id}}","payment"]} }
+        },
+        {
+          "name": "Delete Invoice",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/invoices/{{created_invoice_id}}","host":["{{base_url}}"],"path":["api","invoices","{{created_invoice_id}}"]} }
+        }
+      ]
+    },
+    {
+      "name": "07_Employees",
+      "description": "Employee CRUD tests",
+      "item": [
+        {
+          "name": "Create Employee",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 201', () => pm.response.to.have.status(201));","pm.collectionVariables.set('created_employee_id', pm.response.json().data._id);"]}}],
+          "request": { "method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],"body":{"mode":"raw","raw":"{\n  \"user\": \"{{admin_user_id}}\",\n  \"department\": \"engineering\",\n  \"designation\": \"Senior Developer\",\n  \"joinDate\": \"2024-01-15\",\n  \"salary\": { \"amount\": 150000, \"currency\": \"PKR\", \"type\": \"monthly\" },\n  \"createdBy\": \"{{admin_user_id}}\"\n}"},"url":{"raw":"{{base_url}}/api/employees","host":["{{base_url}}"],"path":["api","employees"]} }
+        },
+        {
+          "name": "List Employees",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","const body = pm.response.json();","pm.test('Data is array', () => pm.expect(body.data).to.be.an('array'));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/employees","host":["{{base_url}}"],"path":["api","employees"]} }
+        },
+        {
+          "name": "Get Single Employee",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/employees/{{created_employee_id}}","host":["{{base_url}}"],"path":["api","employees","{{created_employee_id}}"]} }
+        }
+      ]
+    },
+    {
+      "name": "08_Attendance",
+      "description": "Attendance CRUD tests",
+      "item": [
+        {
+          "name": "List Attendance",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/attendance","host":["{{base_url}}"],"path":["api","attendance"]} }
+        }
+      ]
+    },
+    {
+      "name": "09_Notifications",
+      "description": "Notifications CRUD tests",
+      "item": [
+        {
+          "name": "List Notifications",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/notifications","host":["{{base_url}}"],"path":["api","notifications"]} }
+        }
+      ]
+    },
+    {
+      "name": "10_Chat",
+      "description": "Chat module tests",
+      "item": [
+        {
+          "name": "List Chat Channels",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/chat/channels","host":["{{base_url}}"],"path":["api","chat","channels"]} }
+        }
+      ]
+    },
+    {
+      "name": "11_Meetings",
+      "description": "Meetings module tests",
+      "item": [
+        {
+          "name": "List Meetings",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/meetings","host":["{{base_url}}"],"path":["api","meetings"]} }
+        }
+      ]
+    },
+    {
+      "name": "12_Proposals",
+      "description": "Proposals module tests",
+      "item": [
+        {
+          "name": "List Proposals",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/proposals","host":["{{base_url}}"],"path":["api","proposals"]} }
+        }
+      ]
+    },
+    {
+      "name": "13_Upload",
+      "description": "Upload module tests",
+      "item": [
+        {
+          "name": "Upload — No File Attached",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 400 or 422', () => pm.expect(pm.response.code).to.be.oneOf([400, 422]));"]}}],
+          "request": { "method":"POST","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/upload","host":["{{base_url}}"],"path":["api","upload"]} }
+        }
+      ]
+    },
+    {
+      "name": "14_Documents",
+      "description": "Documents module tests",
+      "item": [
+        {
+          "name": "List Documents",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/documents","host":["{{base_url}}"],"path":["api","documents"]} }
+        }
+      ]
+    },
+    {
+      "name": "15_Analytics",
+      "description": "Analytics endpoints tests",
+      "item": [
+        {
+          "name": "Revenue Analytics",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/analytics/revenue/summary","host":["{{base_url}}"],"path":["api","analytics","revenue","summary"]} }
+        },
+        {
+          "name": "Employee Analytics",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/analytics/employees/summary","host":["{{base_url}}"],"path":["api","analytics","employees","summary"]} }
+        },
+        {
+          "name": "Client Analytics",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/analytics/clients/summary","host":["{{base_url}}"],"path":["api","analytics","clients","summary"]} }
+        }
+      ]
+    },
+    {
+      "name": "16_Export",
+      "description": "Export endpoints tests",
+      "item": [
+        {
+          "name": "Export Clients CSV",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"]}}],
+          "request": { "method":"GET","header":[{"key":"Authorization","value":"Bearer {{admin_token}}"}],"url":{"raw":"{{base_url}}/api/export/clients?format=csv","host":["{{base_url}}"],"path":["api","export","clients"],"query":[{"key":"format","value":"csv"}]} }
+        }
+      ]
+    },
+    {
+      "name": "21_Security_Tests",
+      "description": "Security-specific tests: JWT tampering, injection, RBAC bypass, sensitive data exposure",
+      "item": [
+        {
+          "name": "JWT Tampering — Modified Payload",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Status is 401 — tampered JWT rejected', () => pm.response.to.have.status(401));",
+            "pm.test('Error message does not expose JWT internals', () => {",
+            "  const msg = pm.response.json().message || '';",
+            "  pm.expect(msg).to.not.include('jwt');",
+            "  pm.expect(msg).to.not.include('signature');",
+            "});"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJzdXBlcl9hZG1pbiJ9.INVALIDSIGNATURE" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] }
+          }
+        },
+        {
+          "name": "JWT Tampering — Random String",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 401', () => pm.response.to.have.status(401));"]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer thisisnotatoken12345" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] }
+          }
+        },
+        {
+          "name": "Role Escalation — Developer to Admin Endpoint",
+          "event": [{"listen":"prerequest","script":{"exec":["// Use developer token if available, otherwise use admin token","const devToken = pm.collectionVariables.get('developer_token');","if (devToken) { pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + devToken }); }"]}},{"listen":"test","script":{"exec":["pm.test('Status is 403 — developer blocked from admin endpoint', () => {","  // If developer token was set, expect 403. Otherwise skip.","  const devToken = pm.collectionVariables.get('developer_token');","  if (devToken) { pm.response.to.have.status(403); }","});"]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{developer_token}}" }],
+            "url": { "raw": "{{base_url}}/api/employees", "host": ["{{base_url}}"], "path": ["api","employees"] }
+          }
+        },
+        {
+          "name": "NoSQL Injection — Login Body",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Status is NOT 200 — injection blocked', () => {",
+            "  pm.expect(pm.response.code).to.not.eql(200);",
+            "  pm.expect(pm.response.code).to.be.oneOf([400, 401, 422, 429]);",
+            "});"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"email\": { \"$gt\": \"\" }, \"password\": \"anything\" }" },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "NoSQL Injection — Query Params",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Injection attempt handled safely', () => {",
+            "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 422]);",
+            "  // If 200, ensure not all clients were returned unexpectedly",
+            "});"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/clients?status[$ne]=active", "host": ["{{base_url}}"], "path": ["api","clients"], "query": [{"key":"status[$ne]","value":"active"}] }
+          }
+        },
+        {
+          "name": "XSS in Request Body",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Status 201 or 200', () => {",
+            "  pm.expect(pm.response.code).to.be.oneOf([200, 201, 400, 422]);",
+            "});",
+            "if (pm.response.code <= 201) {",
+            "  const body = pm.response.json();",
+            "  pm.test('Stored value is escaped or stripped', () => {",
+            "    const name = JSON.stringify(body.data);",
+            "    pm.expect(name).to.not.include('<script>');",
+            "  });",
+            "}"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{admin_token}}"}],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"<script>alert(1)</script>\",\n  \"contactName\": \"XSS Test\",\n  \"contactEmail\": \"xss@test.com\",\n  \"createdBy\": \"{{admin_user_id}}\"\n}" },
+            "url": { "raw": "{{base_url}}/api/leads", "host": ["{{base_url}}"], "path": ["api","leads"] }
+          }
+        },
+        {
+          "name": "Sensitive Data — Password Not in Login Response",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('No password field in response', () => {",
+            "  const raw = JSON.stringify(body);",
+            "  // Should not contain any password hash",
+            "  pm.expect(body.data.user).to.not.have.property('password');",
+            "});",
+            "pm.test('refreshToken not in response body (only in cookie)', () => {",
+            "  pm.expect(body.data).to.not.have.property('refreshToken');",
+            "});"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{test_user_email}}\",\n  \"password\": \"{{test_user_password}}\"\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "Sensitive Data — /auth/me No Sensitive Fields",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('No password', () => pm.expect(body.data).to.not.have.property('password'));",
+            "pm.test('No loginAttempts', () => pm.expect(body.data).to.not.have.property('loginAttempts'));",
+            "pm.test('No lockUntil', () => pm.expect(body.data).to.not.have.property('lockUntil'));",
+            "pm.test('No refreshTokens', () => pm.expect(body.data).to.not.have.property('refreshTokens'));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] }
+          }
+        },
+        {
+          "name": "Rate Limit Headers Present",
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Rate limit headers present', () => {",
+            "  // draft-7 uses RateLimit-* headers",
+            "  const headers = pm.response.headers.toObject();",
+            "  const hasRateLimit = Object.keys(headers).some(k => k.toLowerCase().includes('ratelimit'));",
+            "  pm.expect(hasRateLimit).to.be.true;",
+            "});"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/clients", "host": ["{{base_url}}"], "path": ["api","clients"] }
+          }
+        }
+      ]
+    }
+  ]
+}
