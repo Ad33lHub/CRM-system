@@ -12,7 +12,10 @@ export const createTaskSchema = z.object({
   title: z.string().trim().min(2).max(200),
   description: z.string().trim().max(2000).optional(),
   project: OBJECT_ID,
+  // Primary assignee = the responsible owner.
   assignedTo: OBJECT_ID.optional(),
+  // Additional non-primary collaborators on the same task.
+  collaborators: z.array(OBJECT_ID).max(20).optional(),
   status: z.enum(STATUSES).default('todo'),
   priority: z.enum(PRIORITIES).default('medium'),
   estimatedHours: z.coerce.number().nonnegative().max(1000).optional(),
@@ -24,6 +27,7 @@ export const updateTaskSchema = z.object({
   title: z.string().trim().min(2).max(200).optional(),
   description: z.string().trim().max(2000).optional(),
   assignedTo: OBJECT_ID.optional(),
+  collaborators: z.array(OBJECT_ID).max(20).optional(),
   status: z.enum(STATUSES).optional(),
   priority: z.enum(PRIORITIES).optional(),
   estimatedHours: z.coerce.number().nonnegative().max(1000).optional(),

@@ -14,7 +14,7 @@ router.post(
   verifyToken,
   checkPermission('leads', 'create'),
   aiLimiter,
-  validate(createProposalSchema),
+  validate({ body: createProposalSchema }),
   createProposal
 );
 

@@ -1,4 +1,5 @@
 import Employee from '../models/Employee.model.js';
+import User from '../models/User.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { successResponse, paginatedResponse, errorResponse } from '../utils/apiResponse.js';
 import { getPaginationParams } from '../utils/pagination.js';
@@ -22,9 +23,9 @@ async function triggerWelcomeEmail(employee) {
         employeeName,
         employeeId: employee.employeeId || employee._id.toString(),
         department: employee.department || 'General',
-        jobTitle: employee.jobTitle || 'Team Member',
-        startDate: employee.hireDate
-          ? new Date(employee.hireDate).toLocaleDateString('en-PK')
+        jobTitle: employee.designation || 'Team Member',
+        startDate: employee.joinDate
+          ? new Date(employee.joinDate).toLocaleDateString('en-PK')
           : new Date().toLocaleDateString('en-PK'),
         loginUrl: `${process.env.APP_URL || ''}/login`,
         unsubscribeUrl: '',
@@ -68,16 +69,56 @@ export const getEmployee = asyncHandler(async (req, res) => {
 });
 
 export const createEmployee = asyncHandler(async (req, res) => {
-  const doc = await Employee.create(req.body);
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    password,
+    role,
+    salary,
+    salaryCurrency,
+    bankDetails,
+    department,
+    designation,
+    joinDate,
+    skills,
+    emergencyContact,
+  } = req.body;
+
+  // One staff = one User login + one Employee record.
+  const existing = await User.findOne({ email });
+  if (existing) {
+    return errorResponse(res, 'A user with this email already exists', 409);
+  }
+
+  const user = await User.create({ firstName, lastName, email, phone, password, role });
+
+  let doc;
+  try {
+    doc = await Employee.create({
+      user: user._id,
+      department,
+      designation,
+      joinDate,
+      skills: skills || [],
+      salary: { amount: salary || 0, currency: salaryCurrency || 'PKR' },
+      bankDetails,
+      emergencyContact,
+      createdBy: req.user._id,
+    });
+  } catch (err) {
+    // Roll back the orphaned user so the admin can retry with the same email.
+    await User.findByIdAndDelete(user._id).catch(() => {});
+    throw err;
+  }
 
   triggerWelcomeEmail(doc).catch(() => {});
 
-  return successResponse(
-    res,
-    sanitizeEmployee(doc.toObject()),
-    'Employee created successfully',
-    201
-  );
+  const populated = await Employee.findById(doc._id)
+    .populate('user', 'firstName lastName email avatar role')
+    .lean();
+  return successResponse(res, sanitizeEmployee(populated), 'Employee registered successfully', 201);
 });
 
 export const updateEmployee = asyncHandler(async (req, res) => {

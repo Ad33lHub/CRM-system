@@ -17,6 +17,7 @@ export default function EmployeeCreatePage() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   
   const [roleField, setRoleField] = useState('developer');
   const [department, setDepartment] = useState('engineering');
@@ -33,6 +34,10 @@ export default function EmployeeCreatePage() {
     if (step === 1) {
       if (!firstName || !lastName || !email) {
         toast.error('First name, last name, and email are required');
+        return;
+      }
+      if (!password || password.length < 8) {
+        toast.error('A temporary password of at least 8 characters is required');
         return;
       }
     }
@@ -57,6 +62,7 @@ export default function EmployeeCreatePage() {
         lastName,
         email,
         phone,
+        password,
         role: roleField,
         department,
         designation,
@@ -136,6 +142,11 @@ export default function EmployeeCreatePage() {
                   <label htmlFor="emp-phone" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Phone number</label>
                   <Input id="emp-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+92 300 1234567" className="h-10.5" />
                 </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="emp-password" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Temporary Password</label>
+                  <Input id="emp-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 8 characters" className="h-10.5" autoComplete="new-password" />
+                  <p className="text-[11px] text-slate-500">The staff member uses this to log in first, then can reset it.</p>
+                </div>
               </div>
             )}
 
@@ -189,7 +200,7 @@ export default function EmployeeCreatePage() {
             {step === 3 && (
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="emp-salary" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Monthly Base Salary (USD)</label>
+                  <label htmlFor="emp-salary" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Monthly Base Salary (PKR)</label>
                   <Input id="emp-salary" type="number" value={salary} onChange={(e) => setSalary(e.target.value)} className="h-10.5" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -227,7 +238,7 @@ export default function EmployeeCreatePage() {
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span>Base Salary</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">${salary}/mo</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">PKR {salary}/mo</span>
                   </div>
                 </div>
               </div>

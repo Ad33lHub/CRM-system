@@ -341,6 +341,64 @@ export const getMe = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Update the authenticated user's own profile (name, phone).
+ * PATCH /api/auth/me
+ */
+export const updateMe = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user || !user.isActive) {
+    return unauthorised(res, 'User not found or deactivated');
+  }
+
+  const { firstName, lastName, phone } = req.body;
+  if (firstName !== undefined) user.firstName = firstName;
+  if (lastName !== undefined) user.lastName = lastName;
+  if (phone !== undefined) user.phone = phone;
+  await user.save();
+
+  await AuditLog.create({
+    action: 'user.profile_updated',
+    entity: 'User',
+    entityId: user._id,
+    performedBy: user._id,
+    ipAddress: req.ip,
+  }).catch(() => {});
+
+  return successResponse(res, sanitizeUser(user.toObject()), 'Profile updated successfully');
+});
+
+/**
+ * Change the authenticated user's password (requires the current password).
+ * POST /api/auth/change-password
+ */
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user._id).select('+password');
+  if (!user || !user.isActive) {
+    return unauthorised(res, 'User not found or deactivated');
+  }
+
+  const isMatch = await user.comparePassword(currentPassword);
+  if (!isMatch) {
+    return unauthorised(res, 'Current password is incorrect');
+  }
+
+  user.password = newPassword; // pre-save hook re-hashes
+  await user.save();
+
+  await AuditLog.create({
+    action: 'user.password_changed',
+    entity: 'User',
+    entityId: user._id,
+    performedBy: user._id,
+    ipAddress: req.ip,
+  }).catch(() => {});
+
+  return successResponse(res, { id: user._id }, 'Password changed successfully');
+});
+
+/**
  * Generate and send email verification OTP
  * GET /api/auth/send-otp
  */
@@ -415,6 +473,8 @@ export default {
   forgotPassword,
   resetPassword,
   getMe,
+  updateMe,
+  changePassword,
   sendOTP,
   verifyOTP,
 };

@@ -1,7 +1,9 @@
 import Proposal from '../models/Proposal.model.js';
+import Client from '../models/Client.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { successResponse, paginatedResponse } from '../utils/apiResponse.js';
 import { getPaginationParams } from '../utils/pagination.js';
+import { writeProposalBrief } from '../services/ai.service.js';
 
 export const getProposals = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPaginationParams(req.query);
@@ -23,30 +25,54 @@ export const getProposals = asyncHandler(async (req, res) => {
   return paginatedResponse(res, items, page, limit, total, 'Proposals list fetched successfully');
 });
 
+// Deterministic brief used when no AI key is configured (or the API errors).
+function fallbackBrief({ title, companyName, description, budget, timeline }) {
+  return `## ${title}
+
+### 1. Executive Summary
+This proposal outlines our recommended approach to deliver **${title}**${
+    companyName ? ` for ${companyName}` : ''
+  }. ${
+    description
+      ? `Based on the requirements provided: ${description}`
+      : 'We will tailor the solution to your goals and deliver iteratively.'
+  }
+
+### 2. Scope & Deliverables
+- Discovery & requirement finalization
+- Design, implementation, and integration
+- Testing, deployment, and handover
+
+### 3. Timeline
+Target duration: **${timeline || 'to be confirmed'}**.
+
+### 4. Investment
+Estimated budget: **${budget ? `PKR ${budget}` : 'to be proposed after scoping'}**.`;
+}
+
 export const createProposal = asyncHandler(async (req, res) => {
   const { title, client, description, budget, timeline } = req.body;
   const userId = req.user._id;
 
-  // Mock AI generated sales brief text
-  const generatedBrief = `## Proposal for CRM Integration & Deployment
-  
-### 1. Executive Summary
-We propose a complete MERN stack CRM solution tailored for your software house business. This includes signed Cloudinary uploads, a centralized file preview widget, and real-time Socket.IO chat rooms.
+  const clientDoc = await Client.findById(client).select('companyName').lean();
+  const companyName = clientDoc?.companyName;
 
-### 2. Scope & Timeline
-- **Phase 1: Database & API Setup** (Weeks 1-3)
-- **Phase 2: File Management Integration** (Weeks 4-6)
-- **Phase 3: Realtime Communication & Notifications** (Weeks 7-9)
-
-### 3. Financial Agreement
-The estimated cost for the implementation of the CRM workspace is ${budget || 5000} USD, with a target project duration of ${timeline || '3 months'}.`;
+  const aiBrief = await writeProposalBrief({
+    title,
+    companyName,
+    description,
+    budget,
+    timeline,
+  });
+  const generatedBrief =
+    aiBrief || fallbackBrief({ title, companyName, description, budget, timeline });
 
   const doc = await Proposal.create({
-    title: title || 'MERN Stack CRM Integration Proposal',
+    title,
     client,
     description: description || '',
     budget: budget || 0,
-    timeline: timeline || '3 months',
+    timeline: timeline || '',
     generatedBrief,
     createdBy: userId,
   });

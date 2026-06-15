@@ -33,6 +33,10 @@ const employeeSchema = new mongoose.Schema(
       phone: { type: String },
       relationship: { type: String },
     },
+    bankDetails: {
+      bankName: { type: String, default: null },
+      accountNumber: { type: String, default: null },
+    },
     documents: { type: [documentSchema], default: [] },
     leaveBalance: {
       annual: { type: Number, default: 20 },

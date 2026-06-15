@@ -8,6 +8,8 @@ import {
   forgotPassword,
   resetPassword,
   getMe,
+  updateMe,
+  changePassword,
   sendOTP,
   verifyOTP,
 } from '../controllers/auth.controller.js';
@@ -20,6 +22,8 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   verifyOTPSchema,
+  updateProfileSchema,
+  changePasswordSchema,
 } from '../validators/auth.validator.js';
 
 const router = Router();
@@ -47,6 +51,16 @@ router.post('/reset-password', authLimiter, validate({ body: resetPasswordSchema
 
 // Get profile details for hydration
 router.get('/me', verifyToken, getMe);
+
+// Update own profile + change own password
+router.patch('/me', verifyToken, validate({ body: updateProfileSchema }), updateMe);
+router.post(
+  '/change-password',
+  verifyToken,
+  authLimiter,
+  validate({ body: changePasswordSchema }),
+  changePassword
+);
 
 // OTP Verification routes
 router.post('/send-otp', verifyToken, authLimiter, sendOTP);

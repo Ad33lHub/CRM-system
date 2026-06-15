@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { PageHeader } from '../../components/ui/page-header.jsx';
 import { Card } from '../../components/ui/card.jsx';
 import { Button } from '../../components/ui/button.jsx';
 import { Badge } from '../../components/ui/badge.jsx';
 import {
   Hash, Send, Paperclip, Users,
   MessageSquare, Loader2, FileText, Image as ImageIcon, Download,
-  Globe, User, ChevronDown, Check, X, Lock, Pin, Trash2,
-  Search, Plus, Archive, Shield, UserCheck
+  Globe, ChevronDown, Check, X, Lock, Pin, Trash2,
+  Search, Plus, Shield
 } from 'lucide-react';
 import {
   useGetChannelsQuery,
@@ -40,7 +39,6 @@ export default function ChatPage() {
   const fileInputRef = useRef(null);
   const scrollRef = useRef(null);
   const recipientDropdownRef = useRef(null);
-  const prevMessagesLenRef = useRef(0);
 
   /* ── State ──────────────────────────────────────────────────── */
   const [activeChannelId, setActiveChannelId] = useState(null);
@@ -60,7 +58,7 @@ export default function ChatPage() {
   const { data: presenceData } = useGetPresenceListQuery(undefined, { pollingInterval: 10000 });
 
   const channels = useMemo(() => channelsData?.data || [], [channelsData]);
-  const presenceList = presenceData?.data || [];
+  const presenceList = useMemo(() => presenceData?.data || [], [presenceData]);
 
   const { data: messagesData, isLoading: isMessagesLoading, refetch: refetchMessages } = useGetMessagesQuery(
     activeChannelId,
@@ -102,6 +100,10 @@ export default function ChatPage() {
   }, [channelMembers, isUserOnline]);
 
   const memberCount = channelMembers.length;
+  const onlineCount = useMemo(
+    () => channelMembers.filter((m) => isUserOnline(m.id || m._id)).length,
+    [channelMembers, isUserOnline]
+  );
 
   // Role groups available based on user's role
   const availableRoleGroups = useMemo(() => {
@@ -314,11 +316,6 @@ export default function ChatPage() {
   /* ── Render ─────────────────────────────────────────────────── */
   return (
     <div className="crm-chat-root">
-      <PageHeader
-        title="Colleague Discussion Rooms"
-        subtitle="Collaborate on active milestones, task feedback, and chat room updates"
-      />
-
       <div className="crm-chat-columns">
 
         {/* ═══ LEFT: Channels ═══ */}
@@ -348,7 +345,6 @@ export default function ChatPage() {
                   onKeyDown={e => e.key === 'Enter' && handleCreateChannel()}
                   placeholder="Channel name…"
                   className="crm-chat-create-input"
-                  autoFocus
                 />
                 <button onClick={handleCreateChannel} className="crm-chat-create-btn">
                   <Check size={14} />
@@ -385,12 +381,22 @@ export default function ChatPage() {
           <Card className="crm-chat-card crm-chat-center-card">
             {/* ─ Header ─ */}
             <div className="crm-chat-center-hdr">
-              <div className="flex items-center gap-2 min-w-0">
-                <Hash size={18} className="text-blue-500 shrink-0" />
-                <h4 className="crm-chat-ch-name">{activeChannel?.name || 'Channel'}</h4>
-                <Badge variant="secondary" className="crm-chat-member-badge">
-                  {memberCount} member{memberCount !== 1 ? 's' : ''}
-                </Badge>
+              <div className="crm-chat-hdr-main">
+                <span className="crm-chat-hdr-hash">
+                  <Hash size={18} />
+                </span>
+                <div className="crm-chat-hdr-text">
+                  <h4 className="crm-chat-ch-name">{activeChannel?.name || 'Channel'}</h4>
+                  <span className="crm-chat-hdr-sub">
+                    {memberCount} member{memberCount !== 1 ? 's' : ''}
+                    {onlineCount > 0 && (
+                      <>
+                        <span className="crm-chat-hdr-dot" />
+                        {onlineCount} online
+                      </>
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -553,7 +559,6 @@ export default function ChatPage() {
                           onChange={e => setRecipientSearch(e.target.value)}
                           placeholder="Search members…"
                           className="crm-recipient-search-input"
-                          autoFocus
                         />
                       </div>
                     )}
@@ -723,36 +728,49 @@ export default function ChatPage() {
    ══════════════════════════════════════════════════════════════════ */
 
 const chatStyles = `
-/* ── Root & 3-column layout ─────────────────────────────────────── */
+/* ── Root & 3-column layout ─────────────────────────────────────────
+   Full-bleed: cancel the AppLayout <main> padding (32px 40px) so the
+   workspace fills the entire content area edge-to-edge, like Slack.
+   ─────────────────────────────────────────────────────────────────── */
 .crm-chat-root {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 72px);
+  margin: -32px -40px;
+  height: calc(100% + 64px);
   min-height: 0;
+  background:
+    radial-gradient(1200px 600px at 70% -10%, rgb(37 99 235 / 0.07), transparent 60%),
+    #0b1220;
 }
 
 .crm-chat-columns {
   display: flex;
   flex: 1;
-  gap: 12px;
   min-height: 0;
   overflow: hidden;
 }
 
-.crm-chat-col-left   { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; }
+.crm-chat-col-left   { width: 264px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; }
 .crm-chat-col-center { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
-.crm-chat-col-right  { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; }
+.crm-chat-col-right  { width: 248px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; }
 
+/* Panels are flush surfaces separated by hairlines (one connected app). */
 .crm-chat-card {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  border: 1px solid rgb(30 41 59 / 0.5);
-  background: rgb(15 23 42 / 0.5);
-  backdrop-filter: blur(8px);
-  border-radius: 12px;
+  border: none !important;
+  border-radius: 0 !important;
+  background: rgb(15 23 42 / 0.55) !important;
+  backdrop-filter: blur(6px);
   overflow: hidden;
+  box-shadow: none !important;
+}
+.crm-chat-col-left .crm-chat-card { background: rgb(13 20 38 / 0.7) !important; }
+.crm-chat-col-left .crm-chat-card,
+.crm-chat-col-center .crm-chat-card {
+  border-right: 1px solid rgb(148 163 184 / 0.08) !important;
 }
 
 .crm-chat-center-card {
@@ -765,8 +783,8 @@ const chatStyles = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgb(30 41 59 / 0.6);
+  padding: 16px 16px;
+  border-bottom: 1px solid rgb(148 163 184 / 0.08);
   flex-shrink: 0;
 }
 
@@ -830,27 +848,41 @@ const chatStyles = `
 }
 
 .crm-chat-ch-btn {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 9px;
+  padding: 9px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: #94a3b8;
   transition: all 0.15s;
   cursor: pointer;
   border: none;
   background: transparent;
   text-align: left;
+  margin-bottom: 2px;
 }
-.crm-chat-ch-btn:hover { background: rgb(51 65 85 / 0.5); color: #e2e8f0; }
+.crm-chat-ch-btn svg { color: #64748b; transition: color 0.15s; }
+.crm-chat-ch-btn:hover { background: rgb(51 65 85 / 0.4); color: #e2e8f0; }
+.crm-chat-ch-btn:hover svg { color: #94a3b8; }
 .crm-chat-ch-btn.active {
-  background: #2563eb;
+  background: rgb(37 99 235 / 0.14);
   color: #fff;
-  box-shadow: 0 2px 8px rgb(37 99 235 / 0.3);
+}
+.crm-chat-ch-btn.active svg { color: #60a5fa; }
+.crm-chat-ch-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #3b82f6;
 }
 
 /* ── Center header ──────────────────────────────────────────────── */
@@ -858,14 +890,42 @@ const chatStyles = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
-  border-bottom: 1px solid rgb(30 41 59 / 0.6);
+  padding: 12px 22px;
+  border-bottom: 1px solid rgb(148 163 184 / 0.08);
+  background: rgb(15 23 42 / 0.4);
   flex-shrink: 0;
+}
+.crm-chat-hdr-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.crm-chat-hdr-hash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: rgb(37 99 235 / 0.14);
+  color: #60a5fa;
+  flex-shrink: 0;
+}
+.crm-chat-hdr-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.crm-chat-hdr-sub {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+.crm-chat-hdr-dot {
+  display: inline-block;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: #475569;
+  margin: 0 7px;
 }
 
 .crm-chat-ch-name {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
@@ -888,7 +948,7 @@ const chatStyles = `
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  padding: 16px 20px;
+  padding: 20px 28px 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -914,7 +974,7 @@ const chatStyles = `
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  max-width: 75%;
+  max-width: min(74%, 640px);
   position: relative;
 }
 .crm-msg-row.own {
@@ -1009,22 +1069,23 @@ const chatStyles = `
 
 /* Bubbles */
 .crm-msg-bubble {
-  padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 13px;
+  padding: 9px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
   line-height: 1.5;
   word-break: break-word;
   position: relative;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
 }
 .crm-msg-bubble.self {
-  background: #2563eb;
+  background: linear-gradient(180deg, #2f6bff 0%, #2563eb 100%);
   color: #fff;
   border-top-right-radius: 4px;
 }
 .crm-msg-bubble.peer {
   background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid rgb(51 65 85 / 0.6);
+  color: #e8eef6;
+  border: 1px solid rgb(148 163 184 / 0.1);
   border-top-left-radius: 4px;
 }
 .crm-msg-bubble.dm-own {
@@ -1222,28 +1283,28 @@ const chatStyles = `
 /* Input row */
 .crm-compose-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 18px 16px;
   flex-shrink: 0;
 }
 
 .crm-compose-textarea {
   flex: 1;
-  min-height: 40px;
-  max-height: 100px;
-  border-radius: 8px;
-  border: 1px solid #334155;
-  background: rgb(15 23 42 / 0.8);
-  padding: 9px 12px;
-  font-size: 13px;
-  line-height: 1.4;
+  min-height: 44px;
+  max-height: 140px;
+  border-radius: 12px;
+  border: 1px solid rgb(148 163 184 / 0.14);
+  background: rgb(15 23 42 / 0.9);
+  padding: 11px 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
   color: #f1f5f9;
   resize: none;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.crm-compose-textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1); }
+.crm-compose-textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgb(59 130 246 / 0.12); }
 .crm-compose-textarea::placeholder { color: #64748b; }
 
 /* ── Recipient dropdown ─────────────────────────────────────────── */

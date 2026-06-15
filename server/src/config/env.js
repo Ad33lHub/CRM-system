@@ -31,7 +31,7 @@ const optionalVars = [
   'CLOUDINARY_API_KEY',
   'CLOUDINARY_API_SECRET',
   // AI (Phase 11)
-  'OPENAI_API_KEY',
+  'GEMINI_API_KEY',
 ];
 
 const missingRequired = requiredVars.filter((key) => !process.env[key]);
@@ -112,9 +112,9 @@ const config = Object.freeze({
   // ── BullMQ ───────────────────────────────────────
   BULL_REDIS_URL: process.env.BULL_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379',
 
-  // ── AI (Phase 11 — optional) ─────────────────────
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4o',
+  // ── AI (Phase 11 — Google Gemini, optional) ──────
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
 });
 
 export default config;

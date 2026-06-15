@@ -32,6 +32,7 @@ const EMPTY = {
   description: '',
   project: '',
   assignedTo: '',
+  collaborators: [],
   priority: 'medium',
   status: 'todo',
   dueDate: '',
@@ -88,6 +89,9 @@ export default function CreateTaskDialog({
     };
     if (form.description.trim()) payload.description = form.description.trim();
     if (form.assignedTo) payload.assignedTo = form.assignedTo;
+    if (form.collaborators.length) {
+      payload.collaborators = form.collaborators.filter((id) => id !== form.assignedTo);
+    }
     if (form.dueDate) payload.dueDate = new Date(form.dueDate);
     if (form.estimatedHours) payload.estimatedHours = Number(form.estimatedHours);
 
@@ -103,7 +107,7 @@ export default function CreateTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Task</DialogTitle>
           <DialogDescription>Add a new deliverable and assign it to a teammate.</DialogDescription>
@@ -179,6 +183,42 @@ export default function CreateTaskDialog({
                 );
               })}
             </select>
+            <p className="text-[11px] text-slate-500">
+              Primary owner — the person responsible for this task.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="task-collaborators" className={fieldLabel}>
+              Collaborators
+            </label>
+            <select
+              id="task-collaborators"
+              multiple
+              value={form.collaborators}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  collaborators: Array.from(e.target.selectedOptions, (o) => o.value),
+                }))
+              }
+              className={`${selectClass} h-auto min-h-[88px] py-1.5`}
+            >
+              {employees.map((emp) => {
+                const u = emp.user || {};
+                const uid = u._id || u.id;
+                if (!uid || uid === form.assignedTo) return null;
+                return (
+                  <option key={emp.id || emp._id} value={uid}>
+                    {u.firstName} {u.lastName}
+                    {emp.designation ? ` · ${emp.designation}` : ''}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="text-[11px] text-slate-500">
+              Optional — hold Ctrl/Cmd to pick teammates who help but aren&apos;t the owner.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -240,7 +280,7 @@ export default function CreateTaskDialog({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="sticky bottom-0 -mx-4 -mb-4 flex justify-end gap-2 border-t border-border bg-popover px-4 py-3">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>

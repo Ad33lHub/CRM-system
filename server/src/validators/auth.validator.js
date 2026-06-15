@@ -60,6 +60,24 @@ const passwordStrength = z
     'Password must contain uppercase, lowercase, number, and special character'
   );
 
+export const updateProfileSchema = z
+  .object({
+    firstName: z
+      .string()
+      .trim()
+      .min(2, 'First name must be at least 2 characters')
+      .max(50)
+      .optional(),
+    lastName: z
+      .string()
+      .trim()
+      .min(2, 'Last name must be at least 2 characters')
+      .max(50)
+      .optional(),
+    phone: z.string().trim().max(20).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, { message: 'No fields to update' });
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),
