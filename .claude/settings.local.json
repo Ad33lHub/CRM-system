@@ -100,7 +100,8 @@
       "Read(//c/tmp/**)",
       "Bash(curl -s -c cookies.txt -X POST http://localhost:5000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"superadmin@crm.com\",\"password\":\"Admin@12345\"}')",
       "Bash(curl -s -X POST http://localhost:5000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"superadmin@crm.com\",\"password\":\"Admin@12345\"}')",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(f\\\\\"{p.get\\('_id'\\)}  {p.get\\('name'\\)}  {p.get\\('status'\\)}\\\\\" for p in d.get\\('data',[]\\)\\)\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(f\\\\\"{p.get\\('_id'\\)}  {p.get\\('name'\\)}  {p.get\\('status'\\)}\\\\\" for p in d.get\\('data',[]\\)\\)\\)\")",
+      "Skill(run)"
     ]
   },
   "_comment": "Personal, machine-local overrides. This file is gitignored — never commit it. Put your own model preference, extra allowed commands, or personal env here. It is merged on top of (and wins over) settings.json."

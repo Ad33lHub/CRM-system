@@ -1,56 +1,138 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { PageHeader } from '../../components/ui/page-header.jsx';
 import { Card } from '../../components/ui/card.jsx';
 import { Button } from '../../components/ui/button.jsx';
 import { Badge } from '../../components/ui/badge.jsx';
-import { 
-  Hash, Send, Paperclip, Users, 
-  MessageSquare, Loader2, FileText, Image as ImageIcon, Download 
+import {
+  Hash, Send, Paperclip, Users,
+  MessageSquare, Loader2, FileText, Image as ImageIcon, Download,
+  Globe, User, ChevronDown, Check, X, Lock, Pin, Trash2,
+  Search, Plus, Archive, Shield, UserCheck
 } from 'lucide-react';
-import { 
-  useGetChannelsQuery, 
-  useGetMessagesQuery, 
-  useSendMessageMutation 
+import {
+  useGetChannelsQuery,
+  useGetMessagesQuery,
+  useSendMessageMutation,
+  useDeleteMessageMutation,
+  usePinMessageMutation,
+  useGetChannelMembersQuery,
+  useCreateChannelMutation,
 } from '../../services/chatApi.js';
 import { useGetPresenceListQuery } from '../../services/adminApi.js';
 import useAuth from '../../hooks/useAuth.js';
 import AttachmentPreviewModal from '../../components/common/AttachmentPreviewModal.jsx';
 import { toast } from 'sonner';
 
+/* ── Role constants ─────────────────────────────────────────────── */
+const ADMIN_ROLES = ['super_admin', 'admin'];
+const ALL_ROLES = ['super_admin', 'admin', 'manager', 'developer', 'designer', 'qa_engineer'];
+const ROLE_LABELS = {
+  super_admin: 'Super Admins',
+  admin: 'Admins',
+  manager: 'Managers',
+  developer: 'Developers',
+  designer: 'Designers',
+  qa_engineer: 'QA Engineers',
+};
+
 export default function ChatPage() {
-  const { user, accessToken } = useAuth();
+  const { user, accessToken, role: userRole } = useAuth();
   const fileInputRef = useRef(null);
   const scrollRef = useRef(null);
+  const recipientDropdownRef = useRef(null);
+  const prevMessagesLenRef = useRef(0);
 
-  // States
+  /* ── State ──────────────────────────────────────────────────── */
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [typedMessage, setTypedMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState([]);
-  
-  // Preview modal states
+  const [recipient, setRecipient] = useState('everyone');
+  const [showRecipientDropdown, setShowRecipientDropdown] = useState(false);
+  const [recipientSearch, setRecipientSearch] = useState('');
   const [previewFile, setPreviewFile] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [newChannelName, setNewChannelName] = useState('');
 
-  // RTK Queries
+  /* ── RTK Queries ────────────────────────────────────────────── */
   const { data: channelsData, isLoading: isChannelsLoading } = useGetChannelsQuery();
-  const { data: presenceData } = useGetPresenceListQuery(undefined, {
-    pollingInterval: 10000 // Poll presence list every 10s
-  });
-  
+  const { data: presenceData } = useGetPresenceListQuery(undefined, { pollingInterval: 10000 });
+
   const channels = useMemo(() => channelsData?.data || [], [channelsData]);
   const presenceList = presenceData?.data || [];
 
-  // Get messages of active channel
   const { data: messagesData, isLoading: isMessagesLoading, refetch: refetchMessages } = useGetMessagesQuery(
     activeChannelId,
-    { skip: !activeChannelId, pollingInterval: 5000 } // Poll messages every 5s for fallback sync
+    { skip: !activeChannelId, pollingInterval: 5000 }
   );
-  
   const messages = useMemo(() => messagesData?.data || [], [messagesData]);
 
-  const [sendMessageApi, { isLoading: isSending }] = useSendMessageMutation();
+  const { data: membersData } = useGetChannelMembersQuery(
+    activeChannelId,
+    { skip: !activeChannelId, pollingInterval: 15000 }
+  );
+  const channelMembers = useMemo(() => membersData?.data || [], [membersData]);
 
+  const [sendMessageApi, { isLoading: isSending }] = useSendMessageMutation();
+  const [deleteMessageApi] = useDeleteMessageMutation();
+  const [pinMessageApi] = usePinMessageMutation();
+  const [createChannelApi] = useCreateChannelMutation();
+
+  /* ── Derived ────────────────────────────────────────────────── */
+  const activeChannel = channels.find(c => (c.id || c._id) === activeChannelId);
+  const currentUserId = user?.id || user?._id;
+
+  const isUserOnline = useCallback((memberId) => {
+    return presenceList.some(p =>
+      p.user?._id === memberId || p.user?.id === memberId || p.id === memberId || p._id === memberId
+    );
+  }, [presenceList]);
+
+  // Sort members: online first, then alphabetical
+  const sortedMembers = useMemo(() => {
+    return [...channelMembers].sort((a, b) => {
+      const aId = a.id || a._id;
+      const bId = b.id || b._id;
+      const aOnline = isUserOnline(aId) ? 0 : 1;
+      const bOnline = isUserOnline(bId) ? 0 : 1;
+      if (aOnline !== bOnline) return aOnline - bOnline;
+      return (a.firstName || '').localeCompare(b.firstName || '');
+    });
+  }, [channelMembers, isUserOnline]);
+
+  const memberCount = channelMembers.length;
+
+  // Role groups available based on user's role
+  const availableRoleGroups = useMemo(() => {
+    if (ADMIN_ROLES.includes(userRole)) {
+      return ALL_ROLES.filter(r => r !== userRole);
+    }
+    // Manager and below: no role groups
+    return [];
+  }, [userRole]);
+
+  // Recipient list members (excluding self)
+  const recipientMembers = useMemo(() => {
+    return sortedMembers.filter(m => {
+      const mid = m.id || m._id;
+      return mid !== currentUserId;
+    });
+  }, [sortedMembers, currentUserId]);
+
+  // Filtered members for dropdown search
+  const filteredRecipientMembers = useMemo(() => {
+    if (!recipientSearch.trim()) return recipientMembers;
+    const q = recipientSearch.toLowerCase();
+    return recipientMembers.filter(m =>
+      `${m.firstName} ${m.lastName}`.toLowerCase().includes(q) ||
+      m.role?.toLowerCase().includes(q)
+    );
+  }, [recipientMembers, recipientSearch]);
+
+  const showSearch = recipientMembers.length > 10;
+
+  /* ── Effects ────────────────────────────────────────────────── */
   // Set first channel as active by default
   useEffect(() => {
     if (channels.length > 0 && !activeChannelId) {
@@ -59,15 +141,44 @@ export default function ChatPage() {
     }
   }, [channels, activeChannelId]);
 
-  // Scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  const activeChannel = channels.find(c => (c.id || c._id) === activeChannelId);
+  // Close recipient dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (recipientDropdownRef.current && !recipientDropdownRef.current.contains(e.target)) {
+        setShowRecipientDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
+  /* ── Recipient display ──────────────────────────────────────── */
+  const getRecipientLabel = useCallback(() => {
+    if (recipient === 'everyone') return 'Everyone';
+    if (recipient.startsWith('role:')) {
+      const roleName = recipient.replace('role:', '');
+      return ROLE_LABELS[roleName] || roleName;
+    }
+    const member = channelMembers.find(m => (m.id || m._id) === recipient);
+    if (member) return `${member.firstName} ${member.lastName}`.trim();
+    return 'Everyone';
+  }, [recipient, channelMembers]);
+
+  const getRecipientIcon = () => {
+    if (recipient === 'everyone') return Globe;
+    if (recipient.startsWith('role:')) return Shield;
+    return Lock;
+  };
+  const RecipientIcon = getRecipientIcon();
+
+  /* ── Handlers ───────────────────────────────────────────────── */
   const handleSend = async (e) => {
     e.preventDefault();
     if (!typedMessage.trim() && attachments.length === 0) return;
@@ -76,6 +187,7 @@ export default function ChatPage() {
       await sendMessageApi({
         channelId: activeChannelId,
         content: typedMessage,
+        recipient,
         attachments: attachments.map(a => ({
           name: a.fileName,
           url: a.url,
@@ -83,7 +195,7 @@ export default function ChatPage() {
           size: a.size
         }))
       }).unwrap();
-      
+
       setTypedMessage('');
       setAttachments([]);
       refetchMessages();
@@ -92,48 +204,81 @@ export default function ChatPage() {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(e);
+    }
+  };
+
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.size > 10 * 1024 * 1024) {
-      toast.error("File exceeds 10MB limit.");
+      toast.error('File exceeds 10MB limit.');
       return;
     }
-
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('entityType', 'chat');
     formData.append('entityId', activeChannelId);
-
     try {
       const response = await fetch('/api/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: formData
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+        body: formData,
       });
-
       const data = await response.json();
       if (response.ok) {
         setAttachments(prev => [...prev, data]);
-        toast.success(`${file.name} uploaded successfully`);
+        toast.success(`${file.name} uploaded`);
       } else {
-        toast.error(data.message || "Failed to upload file");
+        toast.error(data.message || 'Upload failed');
       }
-    } catch (err) {
-      toast.error("Error uploading file");
+    } catch {
+      toast.error('Error uploading file');
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+  const handleDelete = async (msgId) => {
+    try {
+      await deleteMessageApi(msgId).unwrap();
+      toast.success('Message deleted');
+      refetchMessages();
+    } catch {
+      toast.error('Failed to delete message');
     }
+  };
+
+  const handlePin = async (msgId) => {
+    try {
+      await pinMessageApi(msgId).unwrap();
+      refetchMessages();
+    } catch {
+      toast.error('Failed to pin/unpin message');
+    }
+  };
+
+  const handleCreateChannel = async () => {
+    if (!newChannelName.trim()) return;
+    try {
+      await createChannelApi({ name: newChannelName.trim() }).unwrap();
+      toast.success('Channel created');
+      setNewChannelName('');
+      setShowCreateChannel(false);
+    } catch {
+      toast.error('Failed to create channel');
+    }
+  };
+
+  const selectRecipient = (id) => {
+    setRecipient(id);
+    setShowRecipientDropdown(false);
+    setRecipientSearch('');
   };
 
   const openPreview = (att) => {
@@ -141,263 +286,1201 @@ export default function ChatPage() {
       name: att.name || att.fileName,
       url: att.url || att.cloudinaryUrl,
       size: att.size,
-      mimeType: att.name?.endsWith('.pdf') ? 'application/pdf' : 'image/png' // estimate
+      mimeType: att.name?.endsWith('.pdf') ? 'application/pdf' : 'image/png'
     });
     setPreviewOpen(true);
   };
 
+  /* ── Message grouping ───────────────────────────────────────── */
+  const groupedMessages = useMemo(() => {
+    return messages.map((msg, idx) => {
+      const prevMsg = idx > 0 ? messages[idx - 1] : null;
+      const senderIdCur = msg.sender?.id || msg.sender?._id || msg.sender;
+      const senderIdPrev = prevMsg ? (prevMsg.sender?.id || prevMsg.sender?._id || prevMsg.sender) : null;
+      const isFirstInGroup = !prevMsg || senderIdCur !== senderIdPrev;
+      return { ...msg, isFirstInGroup };
+    });
+  }, [messages]);
+
+  /* ── Can-do checks ──────────────────────────────────────────── */
+  const canDeleteMessage = (msg) => {
+    if (ADMIN_ROLES.includes(userRole)) return true;
+    const senderId = msg.sender?.id || msg.sender?._id;
+    return senderId === currentUserId;
+  };
+  const canPinMessage = () => ADMIN_ROLES.includes(userRole);
+  const canCreateChannel = () => ADMIN_ROLES.includes(userRole);
+
+  /* ── Render ─────────────────────────────────────────────────── */
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col space-y-4">
+    <div className="crm-chat-root">
       <PageHeader
         title="Colleague Discussion Rooms"
         subtitle="Collaborate on active milestones, task feedback, and chat room updates"
       />
 
-      <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
-        
-        {/* Panel 1: Channels sidebar (Left) */}
-        <Card className="w-64 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 backdrop-blur-sm flex flex-col shrink-0">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
-              <MessageSquare className="h-4.5 w-4.5 text-blue-500" />
-              <span>Channels & Rooms</span>
-            </h3>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {isChannelsLoading ? (
-              <div className="text-center py-6 text-xs text-slate-400">Loading rooms...</div>
-            ) : channels.map((c) => {
-              const cid = c.id || c._id;
-              const isActive = cid === activeChannelId;
-              return (
+      <div className="crm-chat-columns">
+
+        {/* ═══ LEFT: Channels ═══ */}
+        <div className="crm-chat-col-left">
+          <Card className="crm-chat-card">
+            <div className="crm-chat-panel-hdr">
+              <h3 className="crm-chat-panel-title">
+                <MessageSquare size={16} className="text-blue-500" />
+                <span>Channels & Rooms</span>
+              </h3>
+              {canCreateChannel() && (
                 <button
-                  key={cid}
-                  onClick={() => {
-                    setActiveChannelId(cid);
-                    setAttachments([]);
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  }`}
+                  onClick={() => setShowCreateChannel(!showCreateChannel)}
+                  className="crm-chat-icon-btn"
+                  title="Create channel"
                 >
-                  <Hash className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{c.name}</span>
+                  <Plus size={14} />
                 </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Panel 2: Message stream & input (Center) */}
-        <Card className="flex-1 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 backdrop-blur-sm flex flex-col min-w-0">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <Hash className="h-5 w-5 text-blue-500 shrink-0" />
-              <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">
-                {activeChannel?.name || 'Channel'}
-              </h4>
+              )}
             </div>
-          </div>
 
-          {/* Messages area */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
-            {isMessagesLoading ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-2">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                <span>Loading channel messages...</span>
+            {showCreateChannel && (
+              <div className="crm-chat-create-ch">
+                <input
+                  value={newChannelName}
+                  onChange={e => setNewChannelName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCreateChannel()}
+                  placeholder="Channel name…"
+                  className="crm-chat-create-input"
+                  autoFocus
+                />
+                <button onClick={handleCreateChannel} className="crm-chat-create-btn">
+                  <Check size={14} />
+                </button>
+                <button onClick={() => { setShowCreateChannel(false); setNewChannelName(''); }} className="crm-chat-create-cancel">
+                  <X size={14} />
+                </button>
               </div>
-            ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs">
-                <span>Start the conversation. Send a message to this channel!</span>
-              </div>
-            ) : (
-              messages.map((msg) => {
-                const isOwn = msg.sender?.email === user.email;
+            )}
+
+            <div className="crm-chat-ch-list">
+              {isChannelsLoading ? (
+                <div className="crm-chat-empty">Loading rooms…</div>
+              ) : channels.map(c => {
+                const cid = c.id || c._id;
+                const isActive = cid === activeChannelId;
                 return (
-                  <div key={msg.id || msg._id} className={`flex items-start gap-3 max-w-[80%] ${isOwn ? 'ml-auto flex-row-reverse' : ''}`}>
-                    {msg.sender?.avatar ? (
-                      <img 
-                        src={msg.sender.avatar} 
-                        alt={msg.sender.firstName} 
-                        className="h-8 w-8 rounded-full object-cover border"
-                      />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-[#334155] text-[#f8fafc] flex items-center justify-center font-extrabold text-xs uppercase shrink-0">
-                        {msg.sender?.firstName?.[0]}{msg.sender?.lastName?.[0]}
-                      </div>
-                    )}
+                  <button
+                    key={cid}
+                    onClick={() => { setActiveChannelId(cid); setAttachments([]); setRecipient('everyone'); }}
+                    className={`crm-chat-ch-btn ${isActive ? 'active' : ''}`}
+                  >
+                    <Hash size={15} />
+                    <span className="truncate">{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
 
-                    <div className="space-y-1">
-                      <div className={`flex items-center gap-2 text-[10px] text-slate-400 ${isOwn ? 'justify-end' : ''}`}>
-                        <span className="font-bold text-slate-700 dark:text-slate-300">
-                          {msg.sender?.firstName} {msg.sender?.lastName}
-                        </span>
-                        <span className="uppercase tracking-wide">({msg.sender?.role})</span>
-                        <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
+        {/* ═══ CENTER: Chat ═══ */}
+        <div className="crm-chat-col-center">
+          <Card className="crm-chat-card crm-chat-center-card">
+            {/* ─ Header ─ */}
+            <div className="crm-chat-center-hdr">
+              <div className="flex items-center gap-2 min-w-0">
+                <Hash size={18} className="text-blue-500 shrink-0" />
+                <h4 className="crm-chat-ch-name">{activeChannel?.name || 'Channel'}</h4>
+                <Badge variant="secondary" className="crm-chat-member-badge">
+                  {memberCount} member{memberCount !== 1 ? 's' : ''}
+                </Badge>
+              </div>
+            </div>
 
-                      <div className={`p-3.5 rounded-2xl text-xs ${
-                        isOwn 
-                          ? 'bg-blue-600 text-white rounded-tr-none' 
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border dark:border-slate-800/80'
-                      }`}>
-                        {msg.content}
+            {/* ─ Messages scroll area ─ */}
+            <div ref={scrollRef} className="crm-chat-messages">
+              {isMessagesLoading ? (
+                <div className="crm-chat-empty-center">
+                  <Loader2 size={24} className="animate-spin text-blue-500" />
+                  <span>Loading messages…</span>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="crm-chat-empty-center">
+                  <MessageSquare size={40} className="text-slate-300 dark:text-slate-600" />
+                  <span>Start the conversation. Send a message!</span>
+                </div>
+              ) : (
+                groupedMessages.map((msg) => {
+                  const msgId = msg.id || msg._id;
+                  const isOwn = (msg.sender?.email === user?.email);
+                  const isDM = msg.recipient && msg.recipient !== 'everyone' && !msg.recipient.startsWith('role:');
+                  const isRoleGroup = msg.recipient?.startsWith('role:');
+                  const isBroadcast = !msg.recipient || msg.recipient === 'everyone';
 
-                        {/* Attachments */}
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="mt-3 space-y-2 border-t pt-2 border-slate-200/50 dark:border-slate-700/50">
-                            {msg.attachments.map((att, idx) => (
-                              <div key={idx} className="flex items-center justify-between gap-4 bg-black/10 dark:bg-black/20 p-2 rounded-lg">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <FileText className="h-4 w-4 shrink-0" />
-                                  <span className="text-[11px] truncate font-medium max-w-[150px]">{att.name}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => openPreview(att)}
-                                    className="p-1 hover:bg-white/20 rounded text-[10px] font-bold"
-                                  >
-                                    Preview
-                                  </button>
-                                  <a
-                                    href={att.url}
-                                    download
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="p-1 hover:bg-white/20 rounded"
-                                  >
-                                    <Download className="h-3.5 w-3.5" />
-                                  </a>
-                                </div>
-                              </div>
-                            ))}
+                  return (
+                    <div
+                      key={msgId}
+                      className={`crm-msg-row ${isOwn ? 'own' : 'other'} ${msg.isFirstInGroup ? 'first-in-group' : 'continuation'}`}
+                    >
+                      {/* Avatar (only on first in group) */}
+                      {msg.isFirstInGroup && (
+                        <div className="crm-msg-avatar">
+                          {msg.sender?.avatar ? (
+                            <img src={msg.sender.avatar} alt="" className="crm-msg-avatar-img" />
+                          ) : (
+                            <div className="crm-msg-avatar-initials">
+                              {msg.sender?.firstName?.[0]}{msg.sender?.lastName?.[0]}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className={`crm-msg-body ${!msg.isFirstInGroup ? 'no-avatar' : ''}`}>
+                        {/* Header line (only first in group) */}
+                        {msg.isFirstInGroup && (
+                          <div className="crm-msg-header">
+                            <span className="crm-msg-name">
+                              {msg.sender?.firstName} {msg.sender?.lastName}
+                            </span>
+                            <Badge variant="outline" className="crm-msg-role-badge">
+                              {msg.sender?.role?.replace('_', ' ')}
+                            </Badge>
+                            <span className="crm-msg-time">
+                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {isDM && (
+                              <span className="crm-msg-dm-tag"><Lock size={10} /> DM</span>
+                            )}
+                            {isRoleGroup && (
+                              <span className="crm-msg-role-tag"><Shield size={10} /> {ROLE_LABELS[msg.recipient.replace('role:', '')] || msg.recipient}</span>
+                            )}
+                            {msg.isPinned && (
+                              <span className="crm-msg-pin-tag"><Pin size={10} /> Pinned</span>
+                            )}
                           </div>
                         )}
+
+                        {/* Bubble */}
+                        <div className={`crm-msg-bubble ${
+                          isDM ? (isOwn ? 'dm-own' : 'dm-other')
+                            : isRoleGroup ? (isOwn ? 'role-own' : 'role-other')
+                              : isOwn ? 'self' : 'peer'
+                        }`}>
+                          {msg.content && <span>{msg.content}</span>}
+
+                          {msg.attachments?.length > 0 && (
+                            <div className="crm-msg-attachments">
+                              {msg.attachments.map((att, idx) => (
+                                <div key={idx} className="crm-msg-att-item">
+                                  <FileText size={14} />
+                                  <span className="crm-msg-att-name">{att.name}</span>
+                                  <button onClick={() => openPreview(att)} className="crm-msg-att-action">Preview</button>
+                                  <a href={att.url} download target="_blank" rel="noopener noreferrer" className="crm-msg-att-action">
+                                    <Download size={12} />
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {isBroadcast && msg.broadcastCount > 0 && msg.isFirstInGroup && (
+                            <div className="crm-msg-receipt">
+                              sent to all {msg.broadcastCount} members
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Context actions */}
+                        <div className="crm-msg-actions">
+                          {canPinMessage() && (
+                            <button onClick={() => handlePin(msgId)} className="crm-msg-action-btn" title={msg.isPinned ? 'Unpin' : 'Pin'}>
+                              <Pin size={12} />
+                            </button>
+                          )}
+                          {canDeleteMessage(msg) && (
+                            <button onClick={() => handleDelete(msgId)} className="crm-msg-action-btn danger" title="Delete">
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Attachments pending container */}
-          {attachments.length > 0 && (
-            <div className="px-6 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 flex flex-wrap gap-2">
-              {attachments.map((att, idx) => (
-                <Badge key={idx} variant="secondary" className="gap-2 text-[10px] pl-2.5">
-                  <ImageIcon className="h-3.5 w-3.5" />
-                  <span>{att.fileName}</span>
-                  <button 
-                    onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
-
-          {/* Message form input */}
-          <form onSubmit={handleSend} className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              onChange={handleFileUpload}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={triggerFileInput}
-              disabled={isUploading}
-              className="h-10 w-10 shrink-0"
-            >
-              {isUploading ? (
-                <Loader2 className="h-4.5 w-4.5 animate-spin" />
-              ) : (
-                <Paperclip className="h-4.5 w-4.5 text-slate-500" />
+                  );
+                })
               )}
-            </Button>
+            </div>
 
-            <textarea
-              id="chat-message-input"
-              value={typedMessage}
-              onChange={(e) => setTypedMessage(e.target.value)}
-              placeholder="Type your message here..."
-              disabled={isSending}
-              className="flex-1 h-10 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none resize-none"
-            />
+            {/* ─ Attachments pending ─ */}
+            {attachments.length > 0 && (
+              <div className="crm-chat-pending-att">
+                {attachments.map((att, idx) => (
+                  <Badge key={idx} variant="secondary" className="gap-1.5 text-[10px] pl-2">
+                    <ImageIcon size={12} />
+                    <span>{att.fileName}</span>
+                    <button onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))} className="crm-att-remove">×</button>
+                  </Badge>
+                ))}
+              </div>
+            )}
 
-            <Button 
-              type="submit" 
-              size="icon"
-              disabled={isSending || (!typedMessage.trim() && attachments.length === 0)}
-              className="h-10 w-10 bg-blue-600 hover:bg-blue-700 shrink-0 text-white"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </Card>
+            {/* ─ Compose bar (pinned to bottom) ─ */}
+            <div className="crm-chat-compose">
+              {/* Recipient bar */}
+              <div className="crm-compose-recipient" ref={recipientDropdownRef}>
+                <span className="crm-compose-to-label">To:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowRecipientDropdown(!showRecipientDropdown)}
+                  className="crm-compose-to-btn"
+                >
+                  <RecipientIcon size={12} className={recipient === 'everyone' ? 'text-blue-400' : recipient.startsWith('role:') ? 'text-violet-400' : 'text-amber-400'} />
+                  <span className="crm-compose-to-name">{getRecipientLabel()}</span>
+                  {recipient === 'everyone' && <span className="crm-compose-to-count">{memberCount}</span>}
+                  <ChevronDown size={12} className="text-slate-400 shrink-0" />
+                </button>
 
-        {/* Panel 3: Member list (Right) */}
-        <Card className="w-56 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 backdrop-blur-sm flex flex-col shrink-0">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
-              <Users className="h-4.5 w-4.5 text-blue-500" />
-              <span>Room Members</span>
-            </h3>
-          </div>
+                {recipient !== 'everyone' && (
+                  <button onClick={() => setRecipient('everyone')} className="crm-compose-to-clear" title="Reset to Everyone">
+                    <X size={12} />
+                  </button>
+                )}
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {activeChannel?.members?.map((m) => {
-              const mid = m.id || m._id;
-              // Check online status from presence list
-              const isUserOnline = presenceList.some(online => online.user?._id === mid || online.user?.id === mid || online.id === mid);
-              return (
-                <div key={mid} className="flex items-center gap-2">
-                  <div className="relative">
-                    {m.avatar ? (
-                      <img src={m.avatar} alt={m.firstName} className="h-7 w-7 rounded-full object-cover" />
-                    ) : (
-                      <div className="h-7 w-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-[10px] text-slate-600 dark:text-slate-300">
-                        {m.firstName?.[0]}{m.lastName?.[0]}
+                {/* Dropdown */}
+                {showRecipientDropdown && (
+                  <div className="crm-recipient-dropdown">
+                    {showSearch && (
+                      <div className="crm-recipient-search">
+                        <Search size={13} className="text-slate-400" />
+                        <input
+                          value={recipientSearch}
+                          onChange={e => setRecipientSearch(e.target.value)}
+                          placeholder="Search members…"
+                          className="crm-recipient-search-input"
+                          autoFocus
+                        />
                       </div>
                     )}
-                    <span className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-white dark:border-slate-900 ${
-                      isUserOnline ? 'bg-emerald-500' : 'bg-slate-400'
-                    }`} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">
-                      {m.firstName} {m.lastName}
-                    </div>
-                    <div className="text-[9px] uppercase tracking-wide text-slate-400 font-medium truncate">
-                      {m.role}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
 
+                    <div className="crm-recipient-list">
+                      {/* 1. Everyone */}
+                      <button onClick={() => selectRecipient('everyone')} className={`crm-recipient-opt ${recipient === 'everyone' ? 'selected' : ''}`}>
+                        <Globe size={15} className="text-blue-500 shrink-0" />
+                        <span className="crm-recipient-opt-label">Everyone</span>
+                        <span className="crm-recipient-opt-count">{memberCount}</span>
+                        {recipient === 'everyone' && <Check size={13} className="text-blue-500 shrink-0" />}
+                      </button>
+
+                      {/* 2. Role groups (admin only) */}
+                      {availableRoleGroups.length > 0 && (
+                        <>
+                          <div className="crm-recipient-divider" />
+                          <p className="crm-recipient-section-label">Role Groups</p>
+                          {availableRoleGroups.map(role => {
+                            const val = `role:${role}`;
+                            const count = channelMembers.filter(m => m.role === role).length;
+                            return (
+                              <button key={val} onClick={() => selectRecipient(val)} className={`crm-recipient-opt ${recipient === val ? 'selected' : ''}`}>
+                                <Shield size={15} className="text-violet-500 shrink-0" />
+                                <span className="crm-recipient-opt-label">{ROLE_LABELS[role]}</span>
+                                <span className="crm-recipient-opt-count">{count}</span>
+                                {recipient === val && <Check size={13} className="text-violet-500 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
+
+                      {/* 3. Individual members */}
+                      <div className="crm-recipient-divider" />
+                      <p className="crm-recipient-section-label">Members</p>
+                      {filteredRecipientMembers.map(m => {
+                        const mid = m.id || m._id;
+                        const online = isUserOnline(mid);
+                        return (
+                          <button key={mid} onClick={() => selectRecipient(mid)} className={`crm-recipient-opt ${recipient === mid ? 'selected' : ''}`}>
+                            <div className="crm-recipient-avatar-wrap">
+                              {m.avatar ? (
+                                <img src={m.avatar} alt="" className="crm-recipient-avatar" />
+                              ) : (
+                                <div className="crm-recipient-avatar-init">{m.firstName?.[0]}{m.lastName?.[0]}</div>
+                              )}
+                              <span className={`crm-recipient-dot ${online ? 'online' : ''}`} />
+                            </div>
+                            <div className="crm-recipient-info">
+                              <span className="crm-recipient-name">{m.firstName} {m.lastName}</span>
+                              <span className="crm-recipient-role">{m.role?.replace('_', ' ')}</span>
+                            </div>
+                            {recipient === mid && <Check size={13} className="text-amber-500 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Input row */}
+              <form onSubmit={handleSend} className="crm-compose-row">
+                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+                <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="h-10 w-10 shrink-0">
+                  {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} className="text-slate-500" />}
+                </Button>
+
+                <textarea
+                  id="chat-message-input"
+                  value={typedMessage}
+                  onChange={e => setTypedMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    recipient === 'everyone' ? 'Message everyone…'
+                      : recipient.startsWith('role:') ? `Message ${getRecipientLabel()}…`
+                        : `Private message to ${getRecipientLabel()}…`
+                  }
+                  disabled={isSending}
+                  rows={1}
+                  className="crm-compose-textarea"
+                />
+
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={isSending || (!typedMessage.trim() && attachments.length === 0)}
+                  className={`h-10 w-10 shrink-0 text-white ${
+                    recipient.startsWith('role:') ? 'bg-violet-600 hover:bg-violet-700'
+                      : recipient !== 'everyone' ? 'bg-amber-600 hover:bg-amber-700'
+                        : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  <Send size={16} />
+                </Button>
+              </form>
+            </div>
+          </Card>
+        </div>
+
+        {/* ═══ RIGHT: Members ═══ */}
+        <div className="crm-chat-col-right">
+          <Card className="crm-chat-card">
+            <div className="crm-chat-panel-hdr">
+              <h3 className="crm-chat-panel-title">
+                <Users size={16} className="text-blue-500" />
+                <span>Room Members</span>
+              </h3>
+              <Badge variant="secondary" className="crm-chat-member-badge-sm">{memberCount}</Badge>
+            </div>
+
+            <div className="crm-chat-members-list">
+              {sortedMembers.map(m => {
+                const mid = m.id || m._id;
+                const online = isUserOnline(mid);
+                const isMe = mid === currentUserId;
+                return (
+                  <button
+                    key={mid}
+                    onClick={() => {
+                      if (!isMe) {
+                        setRecipient(mid);
+                        toast.success(`Now messaging ${m.firstName} ${m.lastName} privately`);
+                      }
+                    }}
+                    className={`crm-member-item ${recipient === mid ? 'selected' : ''} ${isMe ? 'is-me' : ''}`}
+                    title={isMe ? 'You' : `Click to DM ${m.firstName}`}
+                  >
+                    <div className="crm-member-avatar-wrap">
+                      {m.avatar ? (
+                        <img src={m.avatar} alt="" className="crm-member-avatar" />
+                      ) : (
+                        <div className="crm-member-avatar-init">{m.firstName?.[0]}{m.lastName?.[0]}</div>
+                      )}
+                      <span className={`crm-member-dot ${online ? 'online' : ''}`} />
+                    </div>
+                    <div className="crm-member-info">
+                      <div className="crm-member-name">
+                        {m.firstName} {m.lastName}
+                        {isMe && <span className="crm-member-you">(you)</span>}
+                      </div>
+                      <div className="crm-member-role">{m.role?.replace('_', ' ')}</div>
+                    </div>
+                    {recipient === mid && <Lock size={12} className="text-amber-500 ml-auto shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
       </div>
 
-      <AttachmentPreviewModal 
+      <AttachmentPreviewModal
         file={previewFile}
         isOpen={previewOpen}
-        onClose={() => {
-          setPreviewOpen(false);
-          setPreviewFile(null);
-        }}
+        onClose={() => { setPreviewOpen(false); setPreviewFile(null); }}
       />
+
+      <style>{chatStyles}</style>
     </div>
   );
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   Styles — injected via <style> so everything is self-contained.
+   ══════════════════════════════════════════════════════════════════ */
+
+const chatStyles = `
+/* ── Root & 3-column layout ─────────────────────────────────────── */
+.crm-chat-root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 72px);
+  min-height: 0;
+}
+
+.crm-chat-columns {
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.crm-chat-col-left   { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; }
+.crm-chat-col-center { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.crm-chat-col-right  { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; }
+
+.crm-chat-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid rgb(30 41 59 / 0.5);
+  background: rgb(15 23 42 / 0.5);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.crm-chat-center-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Panel headers ──────────────────────────────────────────────── */
+.crm-chat-panel-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgb(30 41 59 / 0.6);
+  flex-shrink: 0;
+}
+
+.crm-chat-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #f1f5f9;
+}
+
+.crm-chat-icon-btn {
+  padding: 4px;
+  border-radius: 6px;
+  color: #94a3b8;
+  transition: all 0.15s;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+.crm-chat-icon-btn:hover { background: rgb(51 65 85 / 0.6); color: #e2e8f0; }
+
+/* ── Create channel inline ──────────────────────────────────────── */
+.crm-chat-create-ch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgb(30 41 59 / 0.6);
+  flex-shrink: 0;
+}
+.crm-chat-create-input {
+  flex: 1;
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #f1f5f9;
+  outline: none;
+}
+.crm-chat-create-input:focus { border-color: #3b82f6; }
+.crm-chat-create-btn, .crm-chat-create-cancel {
+  padding: 4px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+}
+.crm-chat-create-btn { color: #22c55e; }
+.crm-chat-create-btn:hover { background: rgb(34 197 94 / 0.15); }
+.crm-chat-create-cancel { color: #94a3b8; }
+.crm-chat-create-cancel:hover { background: rgb(51 65 85 / 0.5); }
+
+/* ── Channel list ───────────────────────────────────────────────── */
+.crm-chat-ch-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.crm-chat-ch-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+  transition: all 0.15s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+.crm-chat-ch-btn:hover { background: rgb(51 65 85 / 0.5); color: #e2e8f0; }
+.crm-chat-ch-btn.active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 2px 8px rgb(37 99 235 / 0.3);
+}
+
+/* ── Center header ──────────────────────────────────────────────── */
+.crm-chat-center-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgb(30 41 59 / 0.6);
+  flex-shrink: 0;
+}
+
+.crm-chat-ch-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crm-chat-member-badge {
+  font-size: 10px !important;
+  padding: 1px 7px !important;
+  border-radius: 99px;
+}
+.crm-chat-member-badge-sm {
+  font-size: 9px !important;
+  padding: 0 6px !important;
+  border-radius: 99px;
+}
+
+/* ── Messages area ──────────────────────────────────────────────── */
+.crm-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.crm-chat-messages::-webkit-scrollbar { width: 5px; }
+.crm-chat-messages::-webkit-scrollbar-track { background: transparent; }
+.crm-chat-messages::-webkit-scrollbar-thumb { background: rgb(100 116 139 / 0.2); border-radius: 3px; }
+.crm-chat-messages::-webkit-scrollbar-thumb:hover { background: rgb(100 116 139 / 0.4); }
+
+.crm-chat-empty, .crm-chat-empty-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  color: #64748b;
+  font-size: 12px;
+}
+
+/* ── Message rows ───────────────────────────────────────────────── */
+.crm-msg-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 75%;
+  position: relative;
+}
+.crm-msg-row.own {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+.crm-msg-row.other {
+  margin-right: auto;
+}
+.crm-msg-row.first-in-group {
+  margin-top: 12px;
+}
+.crm-msg-row.continuation {
+  margin-top: 2px;
+}
+
+/* Avatar */
+.crm-msg-avatar { flex-shrink: 0; }
+.crm-msg-avatar-img {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgb(51 65 85 / 0.5);
+}
+.crm-msg-avatar-initials {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: #334155;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* Body wrapper */
+.crm-msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  position: relative;
+}
+.crm-msg-body.no-avatar {
+  margin-left: 42px; /* 32px avatar + 10px gap */
+}
+.crm-msg-row.own .crm-msg-body.no-avatar {
+  margin-left: 0;
+  margin-right: 42px;
+}
+
+/* Header line */
+.crm-msg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.crm-msg-row.own .crm-msg-header {
+  justify-content: flex-end;
+}
+.crm-msg-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+.crm-msg-role-badge {
+  font-size: 9px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 5px !important;
+  border-radius: 4px;
+}
+.crm-msg-time {
+  font-size: 10px;
+  color: #64748b;
+}
+.crm-msg-dm-tag, .crm-msg-role-tag, .crm-msg-pin-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.crm-msg-dm-tag { color: #fbbf24; background: rgb(251 191 36 / 0.12); }
+.crm-msg-role-tag { color: #a78bfa; background: rgb(167 139 250 / 0.12); }
+.crm-msg-pin-tag { color: #38bdf8; background: rgb(56 189 248 / 0.12); }
+
+/* Bubbles */
+.crm-msg-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+  position: relative;
+}
+.crm-msg-bubble.self {
+  background: #2563eb;
+  color: #fff;
+  border-top-right-radius: 4px;
+}
+.crm-msg-bubble.peer {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid rgb(51 65 85 / 0.6);
+  border-top-left-radius: 4px;
+}
+.crm-msg-bubble.dm-own {
+  background: #d97706;
+  color: #fff;
+  border-top-right-radius: 4px;
+}
+.crm-msg-bubble.dm-other {
+  background: rgb(217 119 6 / 0.15);
+  color: #fde68a;
+  border: 1px solid rgb(217 119 6 / 0.3);
+  border-top-left-radius: 4px;
+}
+.crm-msg-bubble.role-own {
+  background: #7c3aed;
+  color: #fff;
+  border-top-right-radius: 4px;
+}
+.crm-msg-bubble.role-other {
+  background: rgb(124 58 237 / 0.15);
+  color: #c4b5fd;
+  border: 1px solid rgb(124 58 237 / 0.3);
+  border-top-left-radius: 4px;
+}
+
+/* Continuation bubbles without rounded start */
+.crm-msg-row.continuation .crm-msg-bubble {
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+/* Broadcast receipt */
+.crm-msg-receipt {
+  font-size: 10px;
+  color: rgb(148 163 184 / 0.7);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Attachments in bubbles */
+.crm-msg-attachments {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+  padding-top: 6px;
+}
+.crm-msg-att-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgb(0 0 0 / 0.15);
+  border-radius: 6px;
+  font-size: 11px;
+}
+.crm-msg-att-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.crm-msg-att-action {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.crm-msg-att-action:hover { background: rgb(255 255 255 / 0.15); }
+
+/* Hover actions */
+.crm-msg-actions {
+  display: none;
+  gap: 2px;
+  position: absolute;
+  top: -4px;
+  right: -4px;
+}
+.crm-msg-row.own .crm-msg-actions { right: auto; left: -4px; }
+.crm-msg-row:hover .crm-msg-actions { display: flex; }
+
+.crm-msg-action-btn {
+  padding: 3px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.crm-msg-action-btn:hover { background: #334155; color: #e2e8f0; }
+.crm-msg-action-btn.danger:hover { background: rgb(239 68 68 / 0.2); color: #f87171; }
+
+/* ── Pending attachments ────────────────────────────────────────── */
+.crm-chat-pending-att {
+  padding: 6px 20px;
+  border-top: 1px solid rgb(30 41 59 / 0.6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+  background: rgb(15 23 42 / 0.6);
+}
+.crm-att-remove {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.crm-att-remove:hover { color: #f87171; }
+
+/* ── Compose bar ────────────────────────────────────────────────── */
+.crm-chat-compose {
+  border-top: 1px solid rgb(30 41 59 / 0.6);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Recipient bar */
+.crm-compose-recipient {
+  display: flex;
+  align-items: center;
+  padding: 5px 16px;
+  background: rgb(15 23 42 / 0.4);
+  border-bottom: 1px solid rgb(30 41 59 / 0.4);
+  position: relative;
+  flex-shrink: 0;
+}
+.crm-compose-to-label {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+.crm-compose-to-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgb(30 41 59 / 0.8);
+  border: 1px solid #334155;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.crm-compose-to-btn:hover { border-color: #3b82f6; box-shadow: 0 0 0 2px rgb(59 130 246 / 0.12); }
+.crm-compose-to-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm-compose-to-count {
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: rgb(59 130 246 / 0.2);
+  color: #60a5fa;
+  font-weight: 700;
+}
+.crm-compose-to-clear {
+  margin-left: 4px;
+  padding: 2px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+.crm-compose-to-clear:hover { background: rgb(51 65 85 / 0.5); color: #f87171; }
+
+/* Input row */
+.crm-compose-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  flex-shrink: 0;
+}
+
+.crm-compose-textarea {
+  flex: 1;
+  min-height: 40px;
+  max-height: 100px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: rgb(15 23 42 / 0.8);
+  padding: 9px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #f1f5f9;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.crm-compose-textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1); }
+.crm-compose-textarea::placeholder { color: #64748b; }
+
+/* ── Recipient dropdown ─────────────────────────────────────────── */
+.crm-recipient-dropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 12px;
+  width: 280px;
+  max-height: 370px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px -8px rgb(0 0 0 / 0.5);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.crm-recipient-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #1e293b;
+  flex-shrink: 0;
+}
+.crm-recipient-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+.crm-recipient-search-input::placeholder { color: #64748b; }
+
+.crm-recipient-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+}
+.crm-recipient-list::-webkit-scrollbar { width: 4px; }
+.crm-recipient-list::-webkit-scrollbar-thumb { background: rgb(100 116 139 / 0.2); border-radius: 2px; }
+
+.crm-recipient-divider {
+  height: 1px;
+  background: #1e293b;
+  margin: 4px 8px;
+}
+
+.crm-recipient-section-label {
+  font-size: 9px;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 12px 2px;
+  margin: 0;
+}
+
+.crm-recipient-opt {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #cbd5e1;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+  transition: background 0.12s;
+}
+.crm-recipient-opt:hover { background: rgb(51 65 85 / 0.4); }
+.crm-recipient-opt.selected { background: rgb(37 99 235 / 0.12); }
+
+.crm-recipient-opt-label {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.crm-recipient-opt-count {
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: rgb(100 116 139 / 0.2);
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.crm-recipient-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.crm-recipient-avatar {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.crm-recipient-avatar-init {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #334155;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.crm-recipient-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+  border: 1.5px solid #0f172a;
+}
+.crm-recipient-dot.online { background: #22c55e; }
+
+.crm-recipient-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.crm-recipient-name {
+  font-weight: 600;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm-recipient-role {
+  font-size: 9px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Right panel member list ────────────────────────────────────── */
+.crm-chat-members-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 6px;
+}
+.crm-chat-members-list::-webkit-scrollbar { width: 4px; }
+.crm-chat-members-list::-webkit-scrollbar-thumb { background: rgb(100 116 139 / 0.2); border-radius: 2px; }
+
+.crm-member-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+  transition: all 0.12s;
+}
+.crm-member-item:hover:not(.is-me) { background: rgb(51 65 85 / 0.4); }
+.crm-member-item.selected {
+  background: rgb(217 119 6 / 0.1);
+  outline: 1px solid rgb(217 119 6 / 0.25);
+}
+.crm-member-item.is-me { cursor: default; opacity: 0.7; }
+
+.crm-member-avatar-wrap { position: relative; flex-shrink: 0; }
+.crm-member-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.crm-member-avatar-init {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: #334155;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.crm-member-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+  border: 1.5px solid rgb(15 23 42);
+}
+.crm-member-dot.online { background: #22c55e; }
+
+.crm-member-info { min-width: 0; flex: 1; }
+.crm-member-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.crm-member-you {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  margin-left: 4px;
+}
+.crm-member-role {
+  font-size: 9px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+  .crm-chat-col-right { display: none; }
+  .crm-chat-col-left { width: 200px; }
+}
+@media (max-width: 768px) {
+  .crm-chat-col-left { display: none; }
+}
+`;

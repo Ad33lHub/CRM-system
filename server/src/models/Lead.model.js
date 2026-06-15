@@ -3,60 +3,59 @@ import { baseSchemaOptions, softDeletePlugin } from '../config/mongoose.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const activitySchema = new mongoose.Schema(
+const leadActivitySchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['call', 'email', 'meeting', 'note', 'stage_change'],
+      enum: ['stage_change', 'edit', 'comment'],
+      required: true,
     },
-    note: { type: String },
+    note: { type: String, required: true },
     date: { type: Date, default: Date.now },
-    doneBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    doneBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { _id: true }
 );
 
 const leadSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true, trim: true, maxlength: 200 },
-    contactName: { type: String, required: true, trim: true },
-    contactEmail: {
+    fullName: { type: String, required: true, trim: true },
+    company: { type: String, trim: true, default: '' },
+    email: {
       type: String,
+      required: true,
       lowercase: true,
       trim: true,
-      default: null,
       validate: {
-        validator: (value) => !value || EMAIL_REGEX.test(value),
+        validator: (value) => EMAIL_REGEX.test(value),
         message: 'Invalid email address',
       },
     },
-    contactPhone: { type: String, trim: true, default: null },
-    company: { type: String, trim: true, default: null },
+    phone: { type: String, trim: true, default: '' },
     source: {
       type: String,
-      enum: ['referral', 'linkedin', 'website', 'cold_outreach', 'upwork', 'fiverr', 'other'],
-      default: 'other',
+      enum: ['Manual', 'Website', 'Referral', 'Social', 'Other'],
+      default: 'Manual',
     },
     stage: {
       type: String,
-      enum: ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'],
-      default: 'new',
+      enum: ['New', 'Contacted', 'Qualified', 'Won', 'Lost'],
+      default: 'New',
     },
-    budget: {
-      min: { type: Number, default: 0 },
-      max: { type: Number, default: 0 },
-      currency: { type: String, default: 'PKR' },
-    },
-    expectedCloseDate: { type: Date, default: null },
-    lostReason: { type: String, default: null },
+    value: { type: Number, default: 0 },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    aiScore: { type: Number, min: 0, max: 100, default: null },
-    tags: { type: [String], default: [] },
-    notes: { type: String, maxlength: 2000 },
+    priority: {
+      type: String,
+      enum: ['Low', 'Medium', 'High'],
+      default: 'Medium',
+    },
+    notes: { type: String, default: '' },
+    expectedCloseDate: { type: Date, default: null },
     convertedToClient: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', default: null },
     convertedAt: { type: Date, default: null },
+    lostReason: { type: String, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    activities: { type: [activitySchema], default: [] },
+    activities: { type: [leadActivitySchema], default: [] },
   },
   baseSchemaOptions
 );
@@ -66,7 +65,7 @@ leadSchema.plugin(softDeletePlugin);
 leadSchema.index({ stage: 1 });
 leadSchema.index({ assignedTo: 1, stage: 1 });
 leadSchema.index({ createdAt: -1 });
-leadSchema.index({ contactEmail: 1 });
-leadSchema.index({ title: 'text', contactName: 'text', company: 'text' });
+leadSchema.index({ email: 1 });
+leadSchema.index({ fullName: 'text', company: 'text', email: 'text' });
 
 export default mongoose.model('Lead', leadSchema);

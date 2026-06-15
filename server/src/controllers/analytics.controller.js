@@ -99,8 +99,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     Project.countDocuments({ status: 'active' }),
     Project.countDocuments({ status: 'active', createdAt: { $lte: previousTo } }),
     // 3. Open leads
-    Lead.countDocuments({ stage: { $nin: ['won', 'lost'] } }),
-    Lead.countDocuments({ stage: { $nin: ['won', 'lost'] }, createdAt: { $lte: previousTo } }),
+    Lead.countDocuments({ stage: { $nin: ['won', 'lost', 'Won', 'Lost'] } }),
+    Lead.countDocuments({ stage: { $nin: ['won', 'lost', 'Won', 'Lost'] }, createdAt: { $lte: previousTo } }),
     // 4. Open tasks
     Task.countDocuments({ status: { $nin: ['done'] } }),
     Task.countDocuments({ status: { $nin: ['done'] }, createdAt: { $lte: previousTo } }),
@@ -244,7 +244,8 @@ export const getLeadFunnel = asyncHandler(async (req, res) => {
 
   const countMap = {};
   raw.forEach((r) => {
-    countMap[r._id] = r.count;
+    const key = r._id ? r._id.toLowerCase() : '';
+    countMap[key] = (countMap[key] || 0) + r.count;
   });
 
   let total = 0;

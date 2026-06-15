@@ -8,7 +8,7 @@ import { successResponse } from '../utils/apiResponse.js';
 
 export const getReportsSummary = asyncHandler(async (req, res) => {
   const [leadsCount, invoices, projects, tasks, employeesCount] = await Promise.all([
-    Lead.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+    Lead.aggregate([{ $group: { _id: '$stage', count: { $sum: 1 } } }]),
     Invoice.find({ isDeleted: false }),
     Project.find({ isDeleted: false }),
     Task.find({ isDeleted: false }),
@@ -18,7 +18,8 @@ export const getReportsSummary = asyncHandler(async (req, res) => {
   // Format leads stage summary
   const leadsObj = { new: 0, contacted: 0, qualified: 0, proposal: 0, won: 0, lost: 0 };
   leadsCount.forEach((item) => {
-    if (item._id in leadsObj) leadsObj[item._id] = item.count;
+    const key = item._id ? item._id.toLowerCase() : '';
+    if (key in leadsObj) leadsObj[key] = item.count;
   });
 
   // Format invoices financial summary
@@ -29,11 +30,11 @@ export const getReportsSummary = asyncHandler(async (req, res) => {
   invoices.forEach((inv) => {
     invoiceStatuses[inv.status] = (invoiceStatuses[inv.status] || 0) + 1;
     if (inv.status === 'paid') {
-      totalRevenue += inv.totals.total || 0;
+      totalRevenue += inv.total || 0;
     } else if (inv.status === 'sent') {
-      pendingAmount += inv.totals.total || 0;
+      pendingAmount += inv.total || 0;
     } else if (inv.status === 'overdue') {
-      overdueAmount += inv.totals.total || 0;
+      overdueAmount += inv.total || 0;
     }
   });
 

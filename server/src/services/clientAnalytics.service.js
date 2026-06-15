@@ -220,8 +220,8 @@ export async function getLeadConversionMetrics() {
           $group: {
             _id: null,
             totalLeads: { $sum: 1 },
-            converted: { $sum: { $cond: [{ $eq: ['$stage', 'won'] }, 1, 0] } },
-            lost: { $sum: { $cond: [{ $eq: ['$stage', 'lost'] }, 1, 0] } },
+            converted: { $sum: { $cond: [{ $in: ['$stage', ['won', 'Won']] }, 1, 0] } },
+            lost: { $sum: { $cond: [{ $in: ['$stage', ['lost', 'Lost']] }, 1, 0] } },
           },
         },
       ]),
@@ -231,7 +231,7 @@ export async function getLeadConversionMetrics() {
           $group: {
             _id: '$source',
             total: { $sum: 1 },
-            converted: { $sum: { $cond: [{ $eq: ['$stage', 'won'] }, 1, 0] } },
+            converted: { $sum: { $cond: [{ $in: ['$stage', ['won', 'Won']] }, 1, 0] } },
           },
         },
         {
@@ -251,7 +251,7 @@ export async function getLeadConversionMetrics() {
         { $sort: { converted: -1 } },
       ]),
       Lead.aggregate([
-        { $match: { stage: 'lost', lostReason: { $ne: null }, isDeleted: { $ne: true } } },
+        { $match: { stage: { $in: ['lost', 'Lost'] }, lostReason: { $ne: null }, isDeleted: { $ne: true } } },
         { $group: { _id: '$lostReason', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
@@ -263,7 +263,7 @@ export async function getLeadConversionMetrics() {
       o.totalLeads > 0 ? Number(((o.converted / o.totalLeads) * 100).toFixed(2)) : 0;
 
     const avgDaysResult = await Lead.aggregate([
-      { $match: { stage: 'won', convertedAt: { $ne: null }, isDeleted: { $ne: true } } },
+      { $match: { stage: { $in: ['won', 'Won'] }, convertedAt: { $ne: null }, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: null,

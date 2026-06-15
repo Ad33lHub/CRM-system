@@ -20,6 +20,10 @@ export const leadsApi = baseApi.injectEndpoints({
       query: (id) => `/leads/${id}`,
       providesTags: (result, error, id) => [{ type: 'Lead', id }],
     }),
+    getLeadsMembers: builder.query({
+      query: () => '/leads/members',
+      providesTags: ['User'],
+    }),
     createLead: builder.mutation({
       query: (data) => ({
         url: '/leads',
@@ -49,38 +53,14 @@ export const leadsApi = baseApi.injectEndpoints({
         { type: 'Lead', id: 'LIST' },
       ],
     }),
-    updateLeadStage: builder.mutation({
-      query: ({ id, stage }) => ({
-        url: `/leads/${id}/stage`,
-        method: 'PATCH',
-        body: { stage },
-      }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'Lead', id },
-        { type: 'Lead', id: 'LIST' },
-      ],
-    }),
-    convertLead: builder.mutation({
-      query: ({ id, clientId }) => ({
-        url: `/leads/${id}/convert`,
-        method: 'POST',
-        body: { clientId },
-      }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'Lead', id },
-        { type: 'Lead', id: 'LIST' },
-        { type: 'Client', id: 'LIST' },
-      ],
-    }),
   }),
 });
 
 export const {
   useGetLeadsQuery,
   useGetLeadByIdQuery,
+  useGetLeadsMembersQuery,
   useCreateLeadMutation,
   useUpdateLeadMutation,
   useDeleteLeadMutation,
-  useUpdateLeadStageMutation,
-  useConvertLeadMutation,
 } = leadsApi;

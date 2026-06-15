@@ -11,6 +11,10 @@ const channelSchema = new mongoose.Schema(
     },
     projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', default: null, index: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    isArchived: { type: Boolean, default: false },
+    archivedAt: { type: Date, default: null },
+    archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   baseSchemaOptions
 );

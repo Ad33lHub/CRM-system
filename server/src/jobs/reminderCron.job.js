@@ -29,10 +29,10 @@ async function queueStaleLeadReminders() {
     const { default: Lead } = await import('../models/Lead.model.js');
     const staleThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const staleLeads = await Lead.find({
-      status: { $nin: ['won', 'lost'] },
+      stage: { $nin: ['won', 'lost', 'Won', 'Lost'] },
       updatedAt: { $lte: staleThreshold },
     })
-      .select('_id assignedTo title')
+      .select('_id assignedTo fullName')
       .lean();
 
     if (staleLeads.length === 0) return;
@@ -43,7 +43,7 @@ async function queueStaleLeadReminders() {
         addJob(QUEUE_NAMES.REMINDER, 'stale-lead', {
           leadId: lead._id.toString(),
           assignedTo: lead.assignedTo?.toString(),
-          title: lead.title,
+          title: lead.fullName || 'Lead Follow-up',
         })
       )
     );
