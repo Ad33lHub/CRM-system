@@ -461,6 +461,94 @@ export async function exportClientExcel(
   return wb.xlsx.writeBuffer();
 }
 
+// ── Attendance Excel ─────────────────────────────────────────────────────────
+
+const HRS_FMT = '0.00';
+
+export async function exportAttendanceExcel(
+  { summary, rows, scopeLabel = 'All Employees' },
+  period,
+  userName = 'System'
+) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = BRAND.name;
+  wb.created = new Date();
+
+  // Sheet 1 — Per-employee summary
+  const sumWs = wb.addWorksheet('Summary');
+  applyBrandHeader(sumWs, `Attendance Report (${scopeLabel})`, period);
+  applyHeaderRow(
+    sumWs,
+    [
+      'Employee',
+      'Role',
+      'Present',
+      'Late',
+      'Absent',
+      'Days Logged',
+      'Hours Worked',
+      'Attendance %',
+    ],
+    4
+  );
+  (summary ?? []).forEach((e, i) => {
+    const row = sumWs.getRow(5 + i);
+    row.getCell(1).value = e.name;
+    row.getCell(2).value = e.role ?? '';
+    row.getCell(3).value = e.present ?? 0;
+    row.getCell(4).value = e.late ?? 0;
+    row.getCell(5).value = e.absent ?? 0;
+    row.getCell(6).value = e.totalDays ?? 0;
+    const hrs = row.getCell(7);
+    hrs.value = e.totalHours ?? 0;
+    hrs.numFmt = HRS_FMT;
+    const ar = row.getCell(8);
+    if (e.attendanceRate !== null && e.attendanceRate !== undefined) {
+      ar.value = e.attendanceRate / 100;
+      ar.numFmt = PCT_FMT;
+      if (e.attendanceRate < 80) {
+        ar.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } };
+      }
+    }
+  });
+  sumWs.views = [{ state: 'frozen', ySplit: 4 }];
+  autoFitColumns(sumWs);
+  addFooter(sumWs, userName);
+
+  // Sheet 2 — Daily log
+  const logWs = wb.addWorksheet('Daily Log');
+  applyBrandHeader(logWs, 'Attendance — Daily Log', period);
+  applyHeaderRow(
+    logWs,
+    ['Date', 'Employee', 'Role', 'Check In', 'Check Out', 'Hours', 'Status', 'IP Address'],
+    4
+  );
+  (rows ?? []).forEach((r, i) => {
+    const row = logWs.getRow(5 + i);
+    row.getCell(1).value = r.date;
+    row.getCell(2).value = r.name;
+    row.getCell(3).value = r.role ?? '';
+    row.getCell(4).value = r.checkIn ?? '--';
+    row.getCell(5).value = r.checkOut ?? '--';
+    const hrs = row.getCell(6);
+    hrs.value = r.hours ?? 0;
+    hrs.numFmt = HRS_FMT;
+    const st = row.getCell(7);
+    st.value = r.status ?? '';
+    if (r.status === 'late') {
+      st.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } };
+    } else if (r.status === 'absent') {
+      st.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } };
+    }
+    row.getCell(8).value = r.ipAddress ?? '';
+  });
+  logWs.views = [{ state: 'frozen', ySplit: 4 }];
+  autoFitColumns(logWs);
+  addFooter(logWs, userName);
+
+  return wb.xlsx.writeBuffer();
+}
+
 // ── PDF helpers ──────────────────────────────────────────────────────────────
 
 function pdfCoverPage(doc, reportTitle, period, generatedBy) {
@@ -812,6 +900,63 @@ export function exportEmployeePdf(
         { colWidths: [250, 200] }
       );
     }
+
+    doc.end();
+  });
+}
+
+// ── Attendance PDF ───────────────────────────────────────────────────────────
+
+export function exportAttendancePdf(
+  { summary, rows, scopeLabel = 'All Employees' },
+  period,
+  generatedBy = 'System'
+) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks = [];
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    pdfCoverPage(doc, `Attendance Report — ${scopeLabel}`, period, generatedBy);
+
+    // Page 2 — Per-employee summary
+    doc.addPage();
+    pdfSectionHeader(doc, 'Employee Summary');
+    doc.moveDown(0.5);
+    pdfTable(
+      doc,
+      ['Employee', 'Role', 'Present', 'Late', 'Absent', 'Hours', 'Att%'],
+      (summary ?? []).map((e) => [
+        e.name,
+        e.role ?? '',
+        e.present ?? 0,
+        e.late ?? 0,
+        e.absent ?? 0,
+        Number(e.totalHours ?? 0).toFixed(2),
+        pct(e.attendanceRate),
+      ]),
+      { colWidths: [130, 80, 55, 45, 50, 60, 60] }
+    );
+
+    // Page 3 — Daily log
+    doc.addPage();
+    pdfSectionHeader(doc, 'Daily Log');
+    doc.moveDown(0.5);
+    pdfTable(
+      doc,
+      ['Date', 'Employee', 'In', 'Out', 'Hours', 'Status'],
+      (rows ?? []).map((r) => [
+        r.date,
+        r.name,
+        r.checkIn ?? '--',
+        r.checkOut ?? '--',
+        Number(r.hours ?? 0).toFixed(2),
+        r.status ?? '',
+      ]),
+      { colWidths: [90, 140, 60, 60, 50, 70] }
+    );
 
     doc.end();
   });

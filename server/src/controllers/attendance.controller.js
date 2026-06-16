@@ -2,21 +2,43 @@ import Attendance from '../models/Attendance.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/apiResponse.js';
 import { getPaginationParams } from '../utils/pagination.js';
+import { getManagedTeamUserIds } from '../services/teamScope.service.js';
+
+const ADMIN_ROLES = ['super_admin', 'admin']; // see all attendance
 
 export const getAttendanceLogs = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPaginationParams(req.query);
-  const filter = {};
+  const { role } = req.user;
 
-  // If user is client, deny access
-  if (req.user.role === 'client') {
+  // Clients have no attendance and may not browse it.
+  if (role === 'client') {
     return errorResponse(res, 'Access denied', 403);
   }
 
-  // Non-managers/admins can only see their own attendance
-  if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
+  const filter = {};
+
+  // Optional date-range + status filters (declared in attendanceQuerySchema).
+  if (req.query.from || req.query.to) {
+    filter.date = {};
+    if (req.query.from) filter.date.$gte = new Date(req.query.from);
+    if (req.query.to) filter.date.$lte = new Date(req.query.to);
+  }
+  if (req.query.status && req.query.status !== 'all') filter.status = req.query.status;
+
+  // Visibility scope:
+  //  • admins → everyone (optionally narrowed to one employee)
+  //  • manager → own team only (members of projects they manage)
+  //  • everyone else → only their own records
+  if (ADMIN_ROLES.includes(role)) {
+    if (req.query.employeeId) filter.user = req.query.employeeId;
+  } else if (role === 'manager') {
+    const teamIds = await getManagedTeamUserIds(req.user);
+    filter.user =
+      req.query.employeeId && teamIds.includes(req.query.employeeId)
+        ? req.query.employeeId
+        : { $in: teamIds };
+  } else {
     filter.user = req.user._id;
-  } else if (req.query.userId) {
-    filter.user = req.query.userId;
   }
 
   const [items, total] = await Promise.all([

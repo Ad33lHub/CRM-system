@@ -9,7 +9,7 @@ import {
   exportLeads,
 } from '../controllers/leads.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
-import { checkPermission } from '../middleware/rbac.middleware.js';
+import { checkPermission, checkLeadsAccess } from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   createLeadSchema,
@@ -19,21 +19,15 @@ import {
 
 const router = Router();
 
+// Every leads route is limited to admins and lead-type managers. verifyToken
+// runs first so req.user is populated before the access check.
+router.use(verifyToken, checkLeadsAccess);
+
 // 1. Visible members list for assignedTo dropdown scoping
-router.get(
-  '/members',
-  verifyToken,
-  checkPermission('leads', 'read'),
-  getAssignableMembers
-);
+router.get('/members', verifyToken, checkPermission('leads', 'read'), getAssignableMembers);
 
 // 2. CSV Data Export (Admin only)
-router.get(
-  '/export',
-  verifyToken,
-  checkPermission('leads', 'read'),
-  exportLeads
-);
+router.get('/export', verifyToken, checkPermission('leads', 'read'), exportLeads);
 
 // 3. Main CRUD Pipeline Routes
 router.get(
@@ -44,12 +38,7 @@ router.get(
   listLeads
 );
 
-router.get(
-  '/:id',
-  verifyToken,
-  checkPermission('leads', 'read'),
-  getLead
-);
+router.get('/:id', verifyToken, checkPermission('leads', 'read'), getLead);
 
 router.post(
   '/',
@@ -67,11 +56,6 @@ router.patch(
   updateLead
 );
 
-router.delete(
-  '/:id',
-  verifyToken,
-  checkPermission('leads', 'delete'),
-  deleteLead
-);
+router.delete('/:id', verifyToken, checkPermission('leads', 'delete'), deleteLead);
 
 export default router;

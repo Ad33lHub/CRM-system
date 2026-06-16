@@ -11,7 +11,7 @@ import {
 const router = Router();
 
 router.get('/', verifyToken, validate({ query: attendanceQuerySchema }), getAttendanceLogs);
-router.post('/check-in', verifyToken, validate(clockInSchema), checkIn);
-router.post('/check-out', verifyToken, validate(clockOutSchema), checkOut);
+router.post('/check-in', verifyToken, validate({ body: clockInSchema }), checkIn);
+router.post('/check-out', verifyToken, validate({ body: clockOutSchema }), checkOut);
 
 export default router;

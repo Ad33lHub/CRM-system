@@ -133,10 +133,16 @@ export const listTasks = asyncHandler(async (req, res) => {
   if (req.query.projectId) filter.project = req.query.projectId;
   if (req.query.assignedTo) filter['assignees.user'] = req.query.assignedTo;
 
-  // Visibility scope (admins see everything, so no extra filter for them):
-  //  • developer/designer/qa → only their own tasks (assigned to or created by them)
-  //  • manager → tasks in projects they manage + their own
-  if (SCOPED_ROLES.includes(req.user.role)) {
+  // Visibility scope:
+  //  • scope=mine → own tasks only (assigned to or created by me) for EVERY role,
+  //    backing the "My Tasks" page so even admins/managers see just their own.
+  //  • otherwise, role-based visibility (the "all/review" scope):
+  //      - admins see everything (no extra filter)
+  //      - developer/designer/qa → only their own tasks
+  //      - manager → tasks in projects they manage + their own
+  if (req.query.scope === 'mine') {
+    filter.$or = [{ 'assignees.user': req.user._id }, { createdBy: req.user._id }];
+  } else if (SCOPED_ROLES.includes(req.user.role)) {
     filter.$or = [{ 'assignees.user': req.user._id }, { createdBy: req.user._id }];
   } else if (req.user.role === 'manager') {
     const projectIds = await managedProjectIds(req.user);

@@ -62,4 +62,7 @@ export const taskQuerySchema = z.object({
   priority: z.enum([...PRIORITIES, 'all']).default('all'),
   projectId: OBJECT_ID.optional(),
   assignedTo: OBJECT_ID.optional(),
+  // 'mine' forces own-only (assigned to or created by me) for every role,
+  // backing the "My Tasks" page. 'all' keeps the role-based visibility scope.
+  scope: z.enum(['all', 'mine']).default('all'),
 });

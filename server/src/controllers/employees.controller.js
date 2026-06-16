@@ -47,7 +47,8 @@ export const listEmployees = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('user', 'firstName lastName email avatar role'),
+      .populate('user', 'firstName lastName email avatar role managerType')
+      .populate('reportsTo', 'firstName lastName email role'),
     Employee.countDocuments(filter),
   ]);
   return paginatedResponse(
@@ -62,7 +63,8 @@ export const listEmployees = asyncHandler(async (req, res) => {
 
 export const getEmployee = asyncHandler(async (req, res) => {
   const doc = await Employee.findById(req.params.id)
-    .populate('user', 'firstName lastName email avatar role')
+    .populate('user', 'firstName lastName email avatar role managerType')
+    .populate('reportsTo', 'firstName lastName email role')
     .lean();
   if (!doc) return errorResponse(res, 'Employee not found', 404);
   return successResponse(res, sanitizeEmployee(doc), 'Employee fetched successfully');
@@ -76,11 +78,13 @@ export const createEmployee = asyncHandler(async (req, res) => {
     phone,
     password,
     role,
+    managerType,
     salary,
     salaryCurrency,
     bankDetails,
     department,
     designation,
+    reportsTo,
     joinDate,
     skills,
     emergencyContact,
@@ -92,7 +96,16 @@ export const createEmployee = asyncHandler(async (req, res) => {
     return errorResponse(res, 'A user with this email already exists', 409);
   }
 
-  const user = await User.create({ firstName, lastName, email, phone, password, role });
+  const user = await User.create({
+    firstName,
+    lastName,
+    email,
+    phone,
+    password,
+    role,
+    // Only managers carry a managerType; clear it for every other role.
+    managerType: role === 'manager' ? managerType : null,
+  });
 
   let doc;
   try {
@@ -100,6 +113,7 @@ export const createEmployee = asyncHandler(async (req, res) => {
       user: user._id,
       department,
       designation,
+      reportsTo: reportsTo || null,
       joinDate,
       skills: skills || [],
       salary: { amount: salary || 0, currency: salaryCurrency || 'PKR' },
@@ -116,18 +130,24 @@ export const createEmployee = asyncHandler(async (req, res) => {
   triggerWelcomeEmail(doc).catch(() => {});
 
   const populated = await Employee.findById(doc._id)
-    .populate('user', 'firstName lastName email avatar role')
+    .populate('user', 'firstName lastName email avatar role managerType')
+    .populate('reportsTo', 'firstName lastName email role')
     .lean();
   return successResponse(res, sanitizeEmployee(populated), 'Employee registered successfully', 201);
 });
 
 export const updateEmployee = asyncHandler(async (req, res) => {
-  const doc = await Employee.findByIdAndUpdate(req.params.id, req.body, {
+  // managerType lives on the linked User, not the Employee record.
+  const { managerType, ...employeeFields } = req.body;
+  const doc = await Employee.findByIdAndUpdate(req.params.id, employeeFields, {
     new: true,
     runValidators: true,
     lean: true,
   });
   if (!doc) return errorResponse(res, 'Employee not found', 404);
+  if (managerType !== undefined) {
+    await User.findByIdAndUpdate(doc.user, { managerType: managerType || null });
+  }
   return successResponse(res, sanitizeEmployee(doc), 'Employee updated successfully');
 });
 

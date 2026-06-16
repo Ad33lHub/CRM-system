@@ -3,12 +3,14 @@ import { PageHeader } from '../components/ui/page-header.jsx';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.jsx';
 import { Button } from '../components/ui/button.jsx';
 import { Badge } from '../components/ui/badge.jsx';
+import { Input } from '../components/ui/input.jsx';
 import { LogIn, LogOut, Clock, Calendar, CheckCircle2, AlertCircle, ShieldAlert } from 'lucide-react';
 import {
   useGetAttendanceLogsQuery,
   useCheckInMutation,
   useCheckOutMutation,
 } from '../services/attendanceApi.js';
+import ExportButton from '../components/ExportButton.jsx';
 import useAuth from '../hooks/useAuth.js';
 import { toast } from 'sonner';
 
@@ -16,8 +18,17 @@ export default function AttendanceReportPage() {
   const { user, role } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Date-range filter (drives both the history list and the export).
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const logFilters = {};
+  if (from) logFilters.from = from;
+  if (to) logFilters.to = to;
+
   // RTK Query endpoints
-  const { data: logsData, isLoading: isLogsLoading, refetch } = useGetAttendanceLogsQuery();
+  const { data: logsData, isLoading: isLogsLoading, refetch } =
+    useGetAttendanceLogsQuery(logFilters);
   const [checkInApi, { isLoading: isCheckingIn }] = useCheckInMutation();
   const [checkOutApi, { isLoading: isCheckingOut }] = useCheckOutMutation();
 
@@ -60,6 +71,18 @@ export default function AttendanceReportPage() {
       <PageHeader
         title="Attendance & Check-in"
         subtitle="Manage daily shifts, record work entries, and review your logs"
+        actions={
+          isManager ? (
+            <ExportButton
+              reportType="attendance"
+              label="Export Report"
+              params={{
+                ...(from ? { dateFrom: from } : {}),
+                ...(to ? { dateTo: to } : {}),
+              }}
+            />
+          ) : null
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -126,11 +149,28 @@ export default function AttendanceReportPage() {
 
         {/* History / Summary List */}
         <Card className="lg:col-span-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 backdrop-blur-sm shadow-md">
-          <CardHeader>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
               <Calendar className="h-5 w-5 text-blue-500" />
               <span>Attendance History</span>
             </CardTitle>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                aria-label="From date"
+                className="h-9 w-auto text-xs"
+              />
+              <span className="text-slate-400 text-xs">to</span>
+              <Input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                aria-label="To date"
+                className="h-9 w-auto text-xs"
+              />
+            </div>
           </CardHeader>
           <CardContent>
             {isLogsLoading ? (
@@ -194,7 +234,9 @@ export default function AttendanceReportPage() {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-slate-400">
-              You are viewing employee check-in registers. Logs listed above contain records for your direct reports.
+              {role === 'manager'
+                ? 'You are viewing check-in registers for your own team (members of the projects you manage). Use “Export Report” to download their attendance as Excel or PDF.'
+                : 'You are viewing check-in registers for all employees. Use “Export Report” to download everyone’s attendance as Excel or PDF.'}
             </p>
           </CardContent>
         </Card>

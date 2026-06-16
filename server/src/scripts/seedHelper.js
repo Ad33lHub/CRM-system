@@ -1,19 +1,14 @@
-/* eslint-disable no-console -- CLI seeding script; output goes to stdout by design */
-import mongoose from 'mongoose';
-import config from '../config/env.js';
+/* eslint-disable no-console -- Seeding helper for developer setup; output goes to stdout */
 import { User, Client, Lead, Project } from '../models/index.js';
 
-const run = async () => {
-  await mongoose.connect(config.MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
-  console.log(`Connected to MongoDB: ${mongoose.connection.host}\n`);
-
-  // Safety check — skip if the super admin already exists.
-  const existing = await User.findOne({ email: 'superadmin@crm.com' });
-  if (existing) {
-    console.log('Already seeded — super admin exists. Skipping.');
-    await mongoose.disconnect();
-    process.exit(0);
+export async function seedInMemoryDb() {
+  const count = await User.countDocuments();
+  if (count > 0) {
+    console.log('Database already seeded. Skipping auto-seed.');
+    return;
   }
+
+  console.log('Seeding local in-memory database with default development records...');
 
   // 1. Super Admin
   const superAdmin = await User.create({
@@ -25,7 +20,7 @@ const run = async () => {
     isEmailVerified: true,
     isActive: true,
   });
-  console.log(`✅ Super Admin created: ${superAdmin.id} (${superAdmin.email})`);
+  console.log(`   ✅ Super Admin created: ${superAdmin.email}`);
 
   // 2. Admin
   const admin = await User.create({
@@ -36,7 +31,7 @@ const run = async () => {
     role: 'admin',
     isEmailVerified: true,
   });
-  console.log(`✅ Admin created: ${admin.id} (${admin.email})`);
+  console.log(`   ✅ Admin created: ${admin.email}`);
 
   // 3. Manager
   const manager = await User.create({
@@ -46,7 +41,7 @@ const run = async () => {
     password: 'Manager@12345',
     role: 'manager',
   });
-  console.log(`✅ Manager created: ${manager.id} (${manager.email})`);
+  console.log(`   ✅ Manager created: ${manager.email}`);
 
   // 4. Developer
   const developer = await User.create({
@@ -56,7 +51,7 @@ const run = async () => {
     password: 'Dev@12345',
     role: 'developer',
   });
-  console.log(`✅ Developer created: ${developer.id} (${developer.email})`);
+  console.log(`   ✅ Developer created: ${developer.email}`);
 
   // 5. Sample Client
   const client = await Client.create({
@@ -67,7 +62,7 @@ const run = async () => {
     source: 'referral',
     createdBy: superAdmin.id,
   });
-  console.log(`✅ Client created: ${client.id} (${client.companyName})`);
+  console.log(`   ✅ Client created: ${client.companyName}`);
 
   // 6. Sample Lead
   const lead = await Lead.create({
@@ -79,7 +74,7 @@ const run = async () => {
     assignedTo: manager.id,
     createdBy: superAdmin.id,
   });
-  console.log(`✅ Lead created: ${lead.id} (${lead.fullName})`);
+  console.log(`   ✅ Lead created: ${lead.fullName}`);
 
   // 7. Sample Project
   const project = await Project.create({
@@ -94,14 +89,7 @@ const run = async () => {
     budget: { estimated: 750000, currency: 'PKR' },
     createdBy: superAdmin.id,
   });
-  console.log(`✅ Project created: ${project.id} (${project.name})`);
+  console.log(`   ✅ Project created: ${project.name}`);
 
-  console.log('\n✅ Database seeded successfully');
-  await mongoose.disconnect();
-  process.exit(0);
-};
-
-run().catch((err) => {
-  console.error(`Fatal: ${err.message}`);
-  process.exit(1);
-});
+  console.log('✅ Local in-memory database seeded successfully!');
+}

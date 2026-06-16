@@ -39,6 +39,13 @@ export const connectDB = async () => {
           maxPoolSize: 10,
         });
         logger.info(`MongoDB connected locally (in-memory): ${conn.connection.host}`);
+
+        try {
+          const { seedInMemoryDb } = await import('../scripts/seedHelper.js');
+          await seedInMemoryDb();
+        } catch (seedErr) {
+          logger.error(`Failed to auto-seed local MongoDB: ${seedErr.message}`);
+        }
         
         mongoose.connection.on('connected', () => {
           logger.info('MongoDB local connection established');

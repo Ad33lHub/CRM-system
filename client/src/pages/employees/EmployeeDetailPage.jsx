@@ -9,8 +9,13 @@ import {
   useUpdateEmployeeMutation, 
   useGetAttendanceQuery 
 } from '../../services/employeesApi.js';
+import { useGetEmployeesQuery } from '../../services/employeesApi.js';
 import useAuth from '../../hooks/useAuth.js';
 import AttachmentPreviewModal from '../../components/common/AttachmentPreviewModal.jsx';
+
+// Roles that may act as a reporting manager, and roles allowed to reassign one.
+const MANAGER_ROLES = ['manager', 'admin', 'super_admin'];
+const CAN_ASSIGN_ROLES = ['admin', 'super_admin'];
 import { 
   ArrowLeft, User, CreditCard, 
   Calendar, FileCheck, Upload, Loader2, Download 
@@ -20,7 +25,8 @@ import { toast } from 'sonner';
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
+  const { accessToken, role } = useAuth();
+  const canAssignManager = CAN_ASSIGN_ROLES.includes(role);
   
   // States
   const [activeTab, setActiveTab] = useState('profile'); // profile, salary, attendance, documents
@@ -37,9 +43,57 @@ export default function EmployeeDetailPage() {
     skip: activeTab !== 'attendance'
   });
   const [updateEmployeeApi] = useUpdateEmployeeMutation();
+  // Manager options are only needed when the viewer can reassign.
+  const { data: employeesData } = useGetEmployeesQuery(
+    { status: 'active' },
+    { skip: !canAssignManager }
+  );
 
   const employee = employeeData?.data || employeeData;
   const attendanceLogs = attendanceData?.data || [];
+
+  const employeeUserId = employee?.user?._id || employee?.user?.id;
+  const currentManagerId =
+    employee?.reportsTo?._id || employee?.reportsTo?.id || employee?.reportsTo || '';
+  const managerName = employee?.reportsTo
+    ? `${employee.reportsTo.firstName || ''} ${employee.reportsTo.lastName || ''}`.trim() ||
+      employee.reportsTo.email
+    : null;
+  const managerOptions = (employeesData?.data || [])
+    .filter(
+      (emp) =>
+        MANAGER_ROLES.includes(emp.user?.role) &&
+        (emp.user?._id || emp.user?.id) !== employeeUserId
+    )
+    .map((emp) => ({
+      id: emp.user?._id || emp.user?.id,
+      name: `${emp.user?.firstName || ''} ${emp.user?.lastName || ''}`.trim() || emp.user?.email,
+      role: emp.user?.role,
+    }))
+    .filter((m) => m.id);
+
+  const handleManagerChange = async (value) => {
+    try {
+      await updateEmployeeApi({ id, data: { reportsTo: value || null } }).unwrap();
+      toast.success('Reporting manager updated');
+      refetch();
+    } catch (err) {
+      toast.error(err.data?.message || 'Failed to update manager');
+    }
+  };
+
+  const isManagerRole = employee?.user?.role === 'manager';
+  const currentManagerType = employee?.user?.managerType || '';
+
+  const handleManagerTypeChange = async (value) => {
+    try {
+      await updateEmployeeApi({ id, data: { managerType: value || null } }).unwrap();
+      toast.success('Manager type updated');
+      refetch();
+    } catch (err) {
+      toast.error(err.data?.message || 'Failed to update manager type');
+    }
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -179,6 +233,56 @@ export default function EmployeeDetailPage() {
                     {employee.joinDate ? new Date(employee.joinDate).toLocaleDateString() : '--'}
                   </span>
                 </div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-950/20 border rounded-lg sm:col-span-2">
+                  <span className="text-[10px] text-slate-400 uppercase block mb-1">Reporting Manager</span>
+                  {canAssignManager ? (
+                    <select
+                      value={currentManagerId}
+                      onChange={(e) => handleManagerChange(e.target.value)}
+                      className="mt-0.5 flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+                    >
+                      <option value="">— No manager (top level) —</option>
+                      {managerOptions.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.role})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {managerName || 'None (top level)'}
+                    </span>
+                  )}
+                </div>
+                {isManagerRole && (
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950/20 border rounded-lg sm:col-span-2">
+                    <span className="text-[10px] text-slate-400 uppercase block mb-1">Manager Type</span>
+                    {canAssignManager ? (
+                      <select
+                        value={currentManagerType}
+                        onChange={(e) => handleManagerTypeChange(e.target.value)}
+                        className="mt-0.5 flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+                      >
+                        <option value="">— Select manager type —</option>
+                        <option value="lead_manager">Lead Manager (handles leads pipeline)</option>
+                        <option value="project_manager">Project Manager (runs projects &amp; tasks)</option>
+                      </select>
+                    ) : (
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {currentManagerType === 'lead_manager'
+                          ? 'Lead Manager'
+                          : currentManagerType === 'project_manager'
+                            ? 'Project Manager'
+                            : '—'}
+                      </span>
+                    )}
+                    {canAssignManager && (
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Only Lead Managers can access the Leads module.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

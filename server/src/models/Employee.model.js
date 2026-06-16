@@ -21,6 +21,10 @@ const employeeSchema = new mongoose.Schema(
       required: true,
     },
     designation: { type: String, required: true, trim: true },
+    // Reporting manager (a User with the `manager`/`admin` role). Drives the
+    // explicit org hierarchy used by attendance/task team scoping. Optional so
+    // top-level staff (and the manager's own record) can have no manager.
+    reportsTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     joinDate: { type: Date, required: true },
     skills: { type: [String], default: [] },
     salary: {
@@ -54,6 +58,7 @@ const employeeSchema = new mongoose.Schema(
 // user and employeeId unique indexes are created by their field-level `unique: true` above.
 employeeSchema.index({ department: 1 });
 employeeSchema.index({ isActive: 1 });
+employeeSchema.index({ reportsTo: 1 });
 
 // Auto-generate employeeId (EMP-0001) before validation.
 employeeSchema.pre('validate', async function generateEmployeeId(next) {

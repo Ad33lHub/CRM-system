@@ -14,6 +14,42 @@ import {
 } from '../utils/apiResponse.js';
 import { getPaginationParams, buildPaginationMeta } from '../utils/pagination.js';
 import { createNotification } from '../services/notification.service.js';
+import { getManagedTeamUserIds } from '../services/teamScope.service.js';
+
+/* ── Visibility scope ───────────────────────────────────────────────────
+   Visibility is ASSIGNMENT-based, keyed off Client.assignedTo (the account
+   manager):
+     • admins              → every client (unrestricted)
+     • manager             → clients assigned to anyone on their team
+                             (themselves + direct reports + project teammates)
+     • other clients:read  → only clients assigned to themselves
+   Unassigned clients (assignedTo = null) have no owner, so only admins see
+   them — a manager must be assigned a client before it appears.
+   ─────────────────────────────────────────────────────────────────────── */
+const ADMIN_ROLES = ['super_admin', 'admin'];
+
+// User-id strings whose clients the requester may see (null ⇒ unrestricted).
+async function scopeUserIds(user) {
+  if (ADMIN_ROLES.includes(user.role)) return null;
+  if (user.role === 'manager') return await getManagedTeamUserIds(user);
+  return [user._id.toString()];
+}
+
+// Mongo filter fragment for the visible clients, or null when unrestricted.
+async function clientScopeFilter(user) {
+  const ids = await scopeUserIds(user);
+  if (!ids) return null;
+  return { assignedTo: { $in: ids } };
+}
+
+// True if the requester may see/act on this (populated or raw) client.
+async function canAccessClient(user, client) {
+  const ids = await scopeUserIds(user);
+  if (!ids) return true;
+  const set = new Set(ids.map(String));
+  const assigned = client.assignedTo?._id?.toString() || client.assignedTo?.toString();
+  return Boolean(assigned && set.has(assigned));
+}
 
 /* ── CREATE CLIENT ──────────────────────────────────────────────────── */
 export const createClient = asyncHandler(async (req, res) => {
@@ -104,15 +140,19 @@ export const getClients = asyncHandler(async (req, res) => {
   const sort = {};
   sort[sortBy || 'createdAt'] = sortOrder === 'asc' ? 1 : -1;
 
+  // Apply role-based visibility scope (admins unrestricted).
+  const scope = await clientScopeFilter(req.user);
+  const scopedFilter = scope ? { $and: [filter, scope] } : filter;
+
   const [clients, total] = await Promise.all([
-    Client.find(filter)
+    Client.find(scopedFilter)
       .sort(sort)
       .skip(skip)
       .limit(lim)
       .populate('assignedTo', 'firstName lastName avatar')
       .populate('createdBy', 'firstName lastName')
       .select('-notes'),
-    Client.countDocuments(filter),
+    Client.countDocuments(scopedFilter),
   ]);
 
   const pagination = buildPaginationMeta(total, pg, lim);
@@ -129,6 +169,8 @@ export const getClientById = asyncHandler(async (req, res) => {
     .populate('createdBy', 'firstName lastName');
 
   if (!client) return notFound(res, 'Client');
+  // Hide out-of-scope clients as "not found" rather than leaking existence.
+  if (!(await canAccessClient(req.user, client))) return notFound(res, 'Client');
 
   return successResponse(res, client, 'Client fetched');
 });
@@ -140,6 +182,7 @@ export const updateClient = asyncHandler(async (req, res) => {
     isDeleted: false,
   });
   if (!existing) return notFound(res, 'Client');
+  if (!(await canAccessClient(req.user, existing))) return notFound(res, 'Client');
 
   // Status Change Logic
   const newStatus = req.body.status;
@@ -389,6 +432,7 @@ export const restoreClient = asyncHandler(async (req, res) => {
 export const addContact = asyncHandler(async (req, res) => {
   const client = await Client.findOne({ _id: req.params.id, isDeleted: false });
   if (!client) return notFound(res, 'Client');
+  if (!(await canAccessClient(req.user, client))) return notFound(res, 'Client');
 
   if (client.contacts.length >= 20) {
     return errorResponse(res, 'Maximum 20 contacts per client', 400);
@@ -404,6 +448,7 @@ export const addContact = asyncHandler(async (req, res) => {
 export const removeContact = asyncHandler(async (req, res) => {
   const client = await Client.findOne({ _id: req.params.id, isDeleted: false });
   if (!client) return notFound(res, 'Client');
+  if (!(await canAccessClient(req.user, client))) return notFound(res, 'Client');
 
   const contact = client.contacts.id(req.params.contactId);
   if (!contact) return notFound(res, 'Contact');
@@ -426,6 +471,7 @@ export const removeContact = asyncHandler(async (req, res) => {
 export const setPrimaryContact = asyncHandler(async (req, res) => {
   const client = await Client.findOne({ _id: req.params.id, isDeleted: false });
   if (!client) return notFound(res, 'Client');
+  if (!(await canAccessClient(req.user, client))) return notFound(res, 'Client');
 
   const contact = client.contacts.id(req.params.contactId);
   if (!contact) return notFound(res, 'Contact');
@@ -441,6 +487,11 @@ export const setPrimaryContact = asyncHandler(async (req, res) => {
 
 /* ── GET STATUS LOG ─────────────────────────────────────────────────── */
 export const getStatusLog = asyncHandler(async (req, res) => {
+  // Only return history for clients the requester is allowed to see.
+  const client = await Client.findOne({ _id: req.params.id }).select('assignedTo createdBy').lean();
+  if (!client) return notFound(res, 'Client');
+  if (!(await canAccessClient(req.user, client))) return notFound(res, 'Client');
+
   const logs = await ClientStatusLog.find({
     client: req.params.id,
   })

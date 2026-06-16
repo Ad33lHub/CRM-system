@@ -26,7 +26,8 @@ function onLimitReached(req, _res, options) {
 }
 
 function rateLimitResponse(message) {
-  return (_req, res, _next, options) => {
+  return (req, res, _next, options) => {
+    onLimitReached(req, res, options);
     const retryAfter = Math.ceil(options.windowMs / 1000);
     res.setHeader('Retry-After', retryAfter);
     return res.status(429).json({
@@ -48,13 +49,6 @@ export const authLimiter = rateLimit({
   store: makeStore('auth'),
   handler: rateLimitResponse('Too many login attempts. Try again in 15 minutes.'),
   _name: 'auth',
-  skip: (req) => {
-    onLimitReached(req, null, {
-      _name: 'auth',
-      max: isDev ? 10000 : config.RATE_LIMIT_AUTH_MAX || 5,
-    });
-    return false;
-  },
 });
 
 // ── Registration limiter: 3 per IP / hour ─────────────────────────────────

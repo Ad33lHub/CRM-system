@@ -47,7 +47,8 @@ export default function Sidebar({
   const [logoutApi] = useLogoutMutation();
 
   // RTK Query hooks for badges
-  const { data: tasksData } = useGetTasksQuery({}, { skip: !user });
+  // "My Tasks" badge counts only the user's own overdue tasks (scope=mine).
+  const { data: tasksData } = useGetTasksQuery({ scope: 'mine' }, { skip: !user });
   const { data: channelsData } = useGetChannelsQuery(undefined, { skip: !user });
 
   // Calculate overdue tasks count
@@ -124,6 +125,8 @@ export default function Sidebar({
       to: '/leads',
       icon: TrendingUp,
       roles: ['super_admin', 'admin', 'manager'],
+      // Managers only see Leads if they are a lead-type manager.
+      canView: (u) => u?.role !== 'manager' || u?.managerType === 'lead_manager',
     },
     {
       label: 'Invoices',
@@ -189,6 +192,7 @@ export default function Sidebar({
 
   const filteredItems = menuItems.filter((item) => {
     if (!isRoleAllowed(item.roles)) return false;
+    if (item.canView && !item.canView(user)) return false;
     // Show mobile-only items only when mobile sidebar is open
     if (item.mobileOnly && !isMobileOpen) return false;
     return true;
@@ -387,7 +391,7 @@ export default function Sidebar({
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-1 sidebar-nav">
           {menuItems
-            .filter((item) => isRoleAllowed(item.roles))
+            .filter((item) => isRoleAllowed(item.roles) && (!item.canView || item.canView(user)))
             .map((item) => {
               const active = isActive(item.to);
               const Icon = item.icon;

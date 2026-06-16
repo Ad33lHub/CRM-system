@@ -73,6 +73,20 @@ export const checkRole = (...roles) => {
 };
 
 /**
+ * Leads are restricted to admins and lead-type managers. A 'project_manager'
+ * (or any other manager) cannot see or act on the leads pipeline.
+ */
+export const checkLeadsAccess = (req, res, next) => {
+  if (!req.user) {
+    return apiResponse.unauthorised(res, 'Authentication required');
+  }
+  const { role, managerType } = req.user;
+  if (role === 'super_admin' || role === 'admin') return next();
+  if (role === 'manager' && managerType === 'lead_manager') return next();
+  return apiResponse.forbidden(res, 'Leads are limited to admins and lead managers');
+};
+
+/**
  * Middleware factory to check resource action permission
  * @param {String} resource
  * @param {String} action
@@ -209,6 +223,7 @@ export const clientPortalGuard = async (req, res, next) => {
 export default {
   checkRole,
   checkPermission,
+  checkLeadsAccess,
   checkOwnership,
   clientPortalGuard,
   PERMISSIONS,

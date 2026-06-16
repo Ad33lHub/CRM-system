@@ -127,7 +127,8 @@ export default function TasksPage() {
   const [createOpen, setCreateOpen] = useState(false);
 
   // Queries & Mutations
-  const { data: tasksData, isLoading } = useGetTasksQuery();
+  // "My Tasks" is always own-scoped (assigned to or created by me) for every role.
+  const { data: tasksData, isLoading } = useGetTasksQuery({ scope: 'mine' });
   const [updateStatusApi] = useUpdateTaskStatusMutation();
 
   const tasks = tasksData?.data || tasksData || [];

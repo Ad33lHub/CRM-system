@@ -5,8 +5,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/ca
 import { Button } from '../../components/ui/button.jsx';
 import { Input } from '../../components/ui/input.jsx';
 import { Loader2, ArrowLeft, ArrowRight, UserCheck } from 'lucide-react';
-import { useCreateEmployeeMutation } from '../../services/employeesApi.js';
+import {
+  useCreateEmployeeMutation,
+  useGetEmployeesQuery,
+} from '../../services/employeesApi.js';
 import { toast } from 'sonner';
+
+// Roles that may act as a reporting manager.
+const MANAGER_ROLES = ['manager', 'admin', 'super_admin'];
 
 export default function EmployeeCreatePage() {
   const navigate = useNavigate();
@@ -20,8 +26,10 @@ export default function EmployeeCreatePage() {
   const [password, setPassword] = useState('');
   
   const [roleField, setRoleField] = useState('developer');
+  const [managerType, setManagerType] = useState('');
   const [department, setDepartment] = useState('engineering');
   const [designation, setDesignation] = useState('');
+  const [reportsTo, setReportsTo] = useState('');
   const [joinDate, setJoinDate] = useState('');
 
   const [salary, setSalary] = useState(3000);
@@ -29,6 +37,18 @@ export default function EmployeeCreatePage() {
   const [bankAccount, setBankAccount] = useState('');
 
   const [createEmployeeApi, { isLoading }] = useCreateEmployeeMutation();
+
+  // Reporting-manager options: existing staff with a manager/admin role.
+  const { data: employeesData } = useGetEmployeesQuery({ status: 'active' });
+  const managerOptions = (employeesData?.data || [])
+    .filter((emp) => MANAGER_ROLES.includes(emp.user?.role))
+    .map((emp) => ({
+      id: emp.user?._id || emp.user?.id,
+      name: `${emp.user?.firstName || ''} ${emp.user?.lastName || ''}`.trim() || emp.user?.email,
+      role: emp.user?.role,
+    }))
+    .filter((m) => m.id);
+  const selectedManager = managerOptions.find((m) => m.id === reportsTo);
 
   const handleNext = () => {
     if (step === 1) {
@@ -44,6 +64,10 @@ export default function EmployeeCreatePage() {
     if (step === 2) {
       if (!designation || !joinDate) {
         toast.error('Designation and join date are required');
+        return;
+      }
+      if (roleField === 'manager' && !managerType) {
+        toast.error('Please select a manager type (Lead or Project Manager)');
         return;
       }
     }
@@ -64,8 +88,10 @@ export default function EmployeeCreatePage() {
         phone,
         password,
         role: roleField,
+        managerType: roleField === 'manager' ? managerType : null,
         department,
         designation,
+        reportsTo: reportsTo || null,
         joinDate,
         salary: Number(salary),
         bankDetails: {
@@ -185,6 +211,24 @@ export default function EmployeeCreatePage() {
                     </select>
                   </div>
                 </div>
+                {roleField === 'manager' && (
+                  <div className="space-y-1.5">
+                    <label htmlFor="emp-mgrtype" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Manager Type</label>
+                    <select
+                      id="emp-mgrtype"
+                      value={managerType}
+                      onChange={(e) => setManagerType(e.target.value)}
+                      className="flex h-10.5 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none"
+                    >
+                      <option value="">— Select manager type —</option>
+                      <option value="lead_manager">Lead Manager (handles leads pipeline)</option>
+                      <option value="project_manager">Project Manager (runs projects & tasks)</option>
+                    </select>
+                    <p className="text-[11px] text-slate-500">
+                      Only Lead Managers can access the Leads module.
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label htmlFor="emp-desig" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Designation / Job Title</label>
                   <Input id="emp-desig" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Senior Frontend Engineer" className="h-10.5" />
@@ -192,6 +236,25 @@ export default function EmployeeCreatePage() {
                 <div className="space-y-1.5">
                   <label htmlFor="emp-join" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Joining Date</label>
                   <Input id="emp-join" type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className="h-10.5" />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="emp-mgr" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Reporting Manager</label>
+                  <select
+                    id="emp-mgr"
+                    value={reportsTo}
+                    onChange={(e) => setReportsTo(e.target.value)}
+                    className="flex h-10.5 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none"
+                  >
+                    <option value="">— No manager (top level) —</option>
+                    {managerOptions.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.role})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    Who this employee reports to. Their manager sees them in attendance, tasks, and exports.
+                  </p>
                 </div>
               </div>
             )}
@@ -232,9 +295,25 @@ export default function EmployeeCreatePage() {
                     <span>Role & Scope</span>
                     <span className="font-bold text-blue-500 capitalize">{roleField}</span>
                   </div>
+                  {roleField === 'manager' && (
+                    <div className="flex justify-between items-center py-2">
+                      <span>Manager Type</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {managerType === 'lead_manager'
+                          ? 'Lead Manager'
+                          : managerType === 'project_manager'
+                          ? 'Project Manager'
+                          : '—'}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center py-2">
                     <span>Department</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200 capitalize">{department}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span>Reporting Manager</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{selectedManager?.name || 'None (top level)'}</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span>Base Salary</span>

@@ -12,10 +12,19 @@ import AppError, { ERROR_CODES } from '../utils/AppError.js';
 export const generateAccessToken = (user) => {
   // Production: replace secret with privateKey from env
   // algorithm: 'RS256', use fs.readFileSync for key files
-  return jwt.sign({ sub: user._id, email: user.email, role: user.role }, config.JWT_ACCESS_SECRET, {
-    algorithm: 'HS256',
-    expiresIn: config.JWT_ACCESS_EXPIRES_IN || '15m',
-  });
+  return jwt.sign(
+    {
+      sub: user._id,
+      email: user.email,
+      role: user.role,
+      managerType: user.managerType ?? null,
+    },
+    config.JWT_ACCESS_SECRET,
+    {
+      algorithm: 'HS256',
+      expiresIn: config.JWT_ACCESS_EXPIRES_IN || '15m',
+    }
+  );
 };
 
 /**
