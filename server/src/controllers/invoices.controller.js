@@ -122,6 +122,9 @@ export const listInvoices = asyncHandler(async (req, res) => {
   if (req.query.clientId) {
     filter.client = req.query.clientId;
   }
+  if (req.query.projectId) {
+    filter.project = req.query.projectId;
+  }
   if (req.user && req.user.role === 'client') {
     filter.client = req.user.clientId;
   }

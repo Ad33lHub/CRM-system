@@ -52,6 +52,7 @@ export const invoiceQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
   status: z.enum([...STATUSES, 'all']).default('all'),
   clientId: OBJECT_ID.optional(),
+  projectId: OBJECT_ID.optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
 });

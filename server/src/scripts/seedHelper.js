@@ -91,5 +91,18 @@ export async function seedInMemoryDb() {
   });
   console.log(`   ✅ Project created: ${project.name}`);
 
+  // 8. Client portal login (linked to the sample client) — for testing the portal
+  const portalUser = await User.create({
+    firstName: 'Hassan',
+    lastName: 'Raza',
+    email: 'client@crm.com',
+    password: 'Client@12345',
+    role: 'client',
+    clientId: client.id,
+    isEmailVerified: true,
+    isActive: true,
+  });
+  console.log(`   ✅ Client portal user created: ${portalUser.email}`);
+
   console.log('✅ Local in-memory database seeded successfully!');
 }

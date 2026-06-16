@@ -160,6 +160,8 @@ export const login = asyncHandler(async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        managerType: user.managerType ?? null,
+        clientId: user.clientId ?? null,
         avatar: user.avatar,
         isEmailVerified: user.isEmailVerified,
       },
