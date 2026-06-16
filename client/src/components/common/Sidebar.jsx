@@ -162,7 +162,10 @@ export default function Sidebar({
       label: 'Employees',
       to: '/employees',
       icon: UserCheck,
-      roles: ['super_admin', 'admin'],
+      roles: ['super_admin', 'admin', 'manager'],
+      // Among managers, only hiring managers get the staff-management page;
+      // other managers use the read-only Team Directory instead.
+      canView: (u) => u?.role !== 'manager' || u?.managerType === 'hiring_manager',
     },
     {
       label: 'AI Tools',

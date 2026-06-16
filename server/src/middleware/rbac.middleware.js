@@ -87,6 +87,20 @@ export const checkLeadsAccess = (req, res, next) => {
 };
 
 /**
+ * Registering employees is limited to admins and hiring-type managers. Other
+ * managers can view the employee list but cannot add staff.
+ */
+export const checkEmployeeCreateAccess = (req, res, next) => {
+  if (!req.user) {
+    return apiResponse.unauthorised(res, 'Authentication required');
+  }
+  const { role, managerType } = req.user;
+  if (role === 'super_admin' || role === 'admin') return next();
+  if (role === 'manager' && managerType === 'hiring_manager') return next();
+  return apiResponse.forbidden(res, 'Only admins and hiring managers can add employees');
+};
+
+/**
  * Middleware factory to check resource action permission
  * @param {String} resource
  * @param {String} action
@@ -224,6 +238,7 @@ export default {
   checkRole,
   checkPermission,
   checkLeadsAccess,
+  checkEmployeeCreateAccess,
   checkOwnership,
   clientPortalGuard,
   PERMISSIONS,

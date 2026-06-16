@@ -4,7 +4,7 @@ const DEPARTMENTS = ['engineering', 'design', 'qa', 'management', 'sales', 'hr',
 // Roles an admin may provision via the staff wizard (never super_admin or client).
 const ASSIGNABLE_ROLES = ['manager', 'developer', 'designer', 'qa_engineer', 'admin'];
 // Manager specialization — required when role === 'manager'.
-const MANAGER_TYPES = ['lead_manager', 'project_manager'];
+const MANAGER_TYPES = ['lead_manager', 'project_manager', 'hiring_manager'];
 
 // Reporting manager — a User id, or null/empty to clear it.
 const REPORTS_TO = z

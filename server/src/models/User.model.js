@@ -42,10 +42,11 @@ const userSchema = new mongoose.Schema(
       enum: ['super_admin', 'admin', 'manager', 'developer', 'designer', 'qa_engineer', 'client'],
     },
     // Manager specialization — only meaningful when role === 'manager'.
-    // 'lead_manager' handles the leads pipeline; 'project_manager' runs projects.
+    // 'lead_manager' handles the leads pipeline; 'project_manager' runs projects;
+    // 'hiring_manager' can register new employees.
     managerType: {
       type: String,
-      enum: ['lead_manager', 'project_manager', null],
+      enum: ['lead_manager', 'project_manager', 'hiring_manager', null],
       default: null,
     },
     avatar: {

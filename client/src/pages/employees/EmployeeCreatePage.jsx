@@ -223,9 +223,10 @@ export default function EmployeeCreatePage() {
                       <option value="">— Select manager type —</option>
                       <option value="lead_manager">Lead Manager (handles leads pipeline)</option>
                       <option value="project_manager">Project Manager (runs projects & tasks)</option>
+                      <option value="hiring_manager">Hiring Manager (registers employees)</option>
                     </select>
                     <p className="text-[11px] text-slate-500">
-                      Only Lead Managers can access the Leads module.
+                      Lead Managers access Leads; Hiring Managers can add employees.
                     </p>
                   </div>
                 )}
@@ -303,6 +304,8 @@ export default function EmployeeCreatePage() {
                           ? 'Lead Manager'
                           : managerType === 'project_manager'
                           ? 'Project Manager'
+                          : managerType === 'hiring_manager'
+                          ? 'Hiring Manager'
                           : '—'}
                       </span>
                     </div>

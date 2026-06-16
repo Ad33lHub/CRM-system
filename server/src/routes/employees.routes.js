@@ -7,7 +7,11 @@ import {
   deleteEmployee,
 } from '../controllers/employees.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
-import { checkPermission, checkRole } from '../middleware/rbac.middleware.js';
+import {
+  checkPermission,
+  checkRole,
+  checkEmployeeCreateAccess,
+} from '../middleware/rbac.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   createEmployeeSchema,
@@ -30,7 +34,7 @@ router.get('/:id', verifyToken, checkPermission('employees', 'read'), getEmploye
 router.post(
   '/',
   verifyToken,
-  checkRole('super_admin', 'admin'),
+  checkEmployeeCreateAccess,
   validate({ body: createEmployeeSchema }),
   createEmployee
 );

@@ -266,6 +266,7 @@ export default function EmployeeDetailPage() {
                         <option value="">— Select manager type —</option>
                         <option value="lead_manager">Lead Manager (handles leads pipeline)</option>
                         <option value="project_manager">Project Manager (runs projects &amp; tasks)</option>
+                        <option value="hiring_manager">Hiring Manager (registers employees)</option>
                       </select>
                     ) : (
                       <span className="font-bold text-slate-800 dark:text-slate-200">
@@ -273,12 +274,14 @@ export default function EmployeeDetailPage() {
                           ? 'Lead Manager'
                           : currentManagerType === 'project_manager'
                             ? 'Project Manager'
-                            : '—'}
+                            : currentManagerType === 'hiring_manager'
+                              ? 'Hiring Manager'
+                              : '—'}
                       </span>
                     )}
                     {canAssignManager && (
                       <p className="text-[11px] text-slate-500 mt-1">
-                        Only Lead Managers can access the Leads module.
+                        Lead Managers access Leads; Hiring Managers can add employees.
                       </p>
                     )}
                   </div>

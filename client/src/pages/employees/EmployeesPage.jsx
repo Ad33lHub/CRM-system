@@ -11,8 +11,8 @@ import useAuth from '../../hooks/useAuth.js';
 
 export default function EmployeesPage() {
   const navigate = useNavigate();
-  const { role } = useAuth();
-  
+  const { user, role } = useAuth();
+
   // States
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
@@ -24,15 +24,20 @@ export default function EmployeesPage() {
   const departments = ['all', ...new Set(employees.map(e => e.department).filter(Boolean))];
 
   const filteredEmployees = employees.filter(emp => {
-    const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
-    const searchMatch = fullName.includes(searchTerm.toLowerCase()) || 
-                        (emp.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    // Name/email/role live on the populated `user` sub-document.
+    const u = emp.user || {};
+    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+    const searchMatch = fullName.includes(searchTerm.toLowerCase()) ||
+                        (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (emp.designation || '').toLowerCase().includes(searchTerm.toLowerCase());
     const deptMatch = deptFilter === 'all' || emp.department === deptFilter;
     return searchMatch && deptMatch;
   });
 
-  const canCreate = ['super_admin', 'admin'].includes(role);
+  // Admins and hiring managers may register staff.
+  const canCreate =
+    ['super_admin', 'admin'].includes(role) ||
+    (role === 'manager' && user?.managerType === 'hiring_manager');
 
   return (
     <div className="space-y-6">
@@ -89,16 +94,16 @@ export default function EmployeesPage() {
               className="hover:shadow-md hover:border-blue-500/20 transition-all border cursor-pointer bg-[#1a2332] border-[#1e293b] rounded-xl"
             >
               <CardHeader className="flex flex-row items-center gap-4 pb-3 border-b border-[#1e293b]">
-                {emp.avatar ? (
-                  <img src={emp.avatar} alt={emp.firstName} className="h-12 w-12 rounded-full object-cover border border-[#1e293b]" />
+                {emp.user?.avatar ? (
+                  <img src={emp.user.avatar} alt={emp.user?.firstName} className="h-12 w-12 rounded-full object-cover border border-[#1e293b]" />
                 ) : (
                   <div className="h-12 w-12 rounded-full bg-[#334155] text-[#f8fafc] flex items-center justify-center font-bold text-sm shrink-0">
-                    {emp.firstName?.[0]}{emp.lastName?.[0]}
+                    {emp.user?.firstName?.[0]}{emp.user?.lastName?.[0]}
                   </div>
                 )}
                 <div className="min-w-0">
                   <h3 className="font-extrabold text-[#f8fafc] truncate">
-                    {emp.firstName} {emp.lastName}
+                    {emp.user?.firstName} {emp.user?.lastName}
                   </h3>
                   <p className="text-xs text-slate-400 font-medium truncate">{emp.designation || 'Specialist'}</p>
                 </div>
@@ -107,7 +112,7 @@ export default function EmployeesPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Mail className="h-3.5 w-3.5 text-[#64748b] shrink-0" />
-                    <span className="font-medium text-slate-300 truncate">{emp.email}</span>
+                    <span className="font-medium text-slate-300 truncate">{emp.user?.email}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Building2 className="h-3.5 w-3.5 text-[#64748b] shrink-0" />
@@ -115,7 +120,7 @@ export default function EmployeesPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Shield className="h-3.5 w-3.5 text-[#64748b] shrink-0" />
-                    <span className="capitalize text-blue-400">{emp.role?.replace('_', ' ')}</span>
+                    <span className="capitalize text-blue-400">{emp.user?.role?.replace('_', ' ')}</span>
                   </div>
                 </div>
 
