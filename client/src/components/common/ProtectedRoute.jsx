@@ -15,6 +15,11 @@ export default function ProtectedRoute({ requiredRoles = [] }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Confine client-portal users to /portal — they may not enter staff routes.
+  if (user?.role === 'client' && !location.pathname.startsWith('/portal')) {
+    return <Navigate to="/portal" replace />;
+  }
+
   if (
     requiredRoles &&
     requiredRoles.length > 0 &&
