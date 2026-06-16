@@ -49,6 +49,8 @@ const userSchema = new mongoose.Schema(
       enum: ['lead_manager', 'project_manager', 'hiring_manager', null],
       default: null,
     },
+    // For client-portal logins: the Client company this account represents.
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', default: null },
     avatar: {
       type: String,
       default: null,

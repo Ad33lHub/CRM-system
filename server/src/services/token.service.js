@@ -18,6 +18,7 @@ export const generateAccessToken = (user) => {
       email: user.email,
       role: user.role,
       managerType: user.managerType ?? null,
+      clientId: user.clientId ?? null,
     },
     config.JWT_ACCESS_SECRET,
     {

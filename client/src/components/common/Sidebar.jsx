@@ -109,6 +109,12 @@ export default function Sidebar({
       badgeVariant: 'default',
     },
     {
+      label: 'Client Messages',
+      to: '/client-messages',
+      icon: MessageSquare,
+      roles: ['super_admin', 'admin', 'manager'],
+    },
+    {
       label: 'Profile',
       to: '/profile',
       icon: User,

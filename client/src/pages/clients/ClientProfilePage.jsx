@@ -12,6 +12,7 @@ import DeleteClientDialog from '@/features/clients/components/DeleteClientDialog
 import {
   useGetClientByIdQuery,
   useUpdateClientMutation,
+  useInviteClientPortalMutation,
 } from '@/services/clientsApi';
 import useAuth from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -52,6 +53,7 @@ export default function ClientProfilePage() {
 
   const { data, isLoading, error } = useGetClientByIdQuery(id);
   const [updateClient] = useUpdateClientMutation();
+  const [invitePortal, { isLoading: isInviting }] = useInviteClientPortalMutation();
 
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -61,6 +63,15 @@ export default function ClientProfilePage() {
 
   const client = data?.data;
   const canDelete = ['super_admin', 'admin'].includes(role);
+
+  const handleInvitePortal = async () => {
+    try {
+      const res = await invitePortal({ id }).unwrap();
+      toast.success(`Portal invite sent to ${res?.data?.email || 'the client'}`);
+    } catch (err) {
+      toast.error(err?.data?.message || 'Failed to send portal invite');
+    }
+  };
 
   // Redirect on access/not-found errors
   useEffect(() => {
@@ -140,6 +151,11 @@ export default function ClientProfilePage() {
             <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
               Edit
             </Button>
+            {canDelete && (
+              <Button variant="outline" size="sm" disabled={isInviting} onClick={handleInvitePortal}>
+                {isInviting ? 'Inviting…' : 'Invite to Portal'}
+              </Button>
+            )}
             {canDelete && (
               <Button
                 variant="outline"

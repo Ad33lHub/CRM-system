@@ -180,6 +180,14 @@ export const clientsApi = baseApi.injectEndpoints({
       query: (clientId) => `/clients/${clientId}/status-log`,
       providesTags: (result, error, clientId) => [{ type: 'Client', id: clientId }],
     }),
+
+    inviteClientPortal: builder.mutation({
+      query: ({ id, email }) => ({
+        url: `/clients/${id}/invite`,
+        method: 'POST',
+        body: email ? { email } : {},
+      }),
+    }),
   }),
 });
 
@@ -203,4 +211,5 @@ export const {
   useDeleteNoteMutation,
   useTogglePinMutation,
   useGetStatusLogQuery,
+  useInviteClientPortalMutation,
 } = clientsApi;

@@ -12,9 +12,12 @@ import {
   errorResponse,
   conflict,
 } from '../utils/apiResponse.js';
+import crypto from 'crypto';
 import { getPaginationParams, buildPaginationMeta } from '../utils/pagination.js';
 import { createNotification } from '../services/notification.service.js';
 import { getManagedTeamUserIds } from '../services/teamScope.service.js';
+import { queueEmail } from '../services/email.service.js';
+import logger from '../utils/logger.js';
 
 /* ── Visibility scope ───────────────────────────────────────────────────
    Visibility is ASSIGNMENT-based, keyed off Client.assignedTo (the account
@@ -501,6 +504,87 @@ export const getStatusLog = asyncHandler(async (req, res) => {
   return successResponse(res, logs, 'Status logs fetched successfully');
 });
 
+/* ── INVITE CLIENT TO PORTAL ────────────────────────────────────────── */
+// A login that meets the User model rules + has upper/lower/digit/special.
+function generateTempPassword() {
+  return `Pt@${crypto.randomBytes(4).toString('hex')}A1`;
+}
+
+function primaryContact(client) {
+  const contacts = client.contacts || [];
+  return contacts.find((c) => c.isPrimary) || contacts[0] || {};
+}
+
+export const inviteClientPortalUser = asyncHandler(async (req, res) => {
+  const client = await Client.findOne({ _id: req.params.id, isDeleted: false });
+  if (!client) return notFound(res, 'Client');
+
+  const contact = primaryContact(client);
+  const email = (req.body.email || contact.email || '').trim().toLowerCase();
+  if (!email) {
+    return errorResponse(res, 'No contact email available. Add a contact email first.', 400);
+  }
+
+  const [firstName, ...rest] = (contact.name || client.companyName || 'Client').split(' ');
+  const lastName = rest.join(' ') || 'Portal';
+  const tempPassword = generateTempPassword();
+  const loginUrl = `${process.env.APP_URL || ''}/login`;
+
+  let user = await User.findOne({ email });
+  if (user) {
+    // Re-inviting the same client's portal login → reset the password and resend.
+    if (user.role !== 'client' || user.clientId?.toString() !== client._id.toString()) {
+      return conflict(res, 'A user with this email already exists for a different account');
+    }
+    user.password = tempPassword; // pre-save hook re-hashes
+    await user.save();
+  } else {
+    user = await User.create({
+      firstName,
+      lastName,
+      email,
+      password: tempPassword,
+      role: 'client',
+      clientId: client._id,
+      isEmailVerified: true,
+    });
+  }
+
+  try {
+    await queueEmail({
+      to: email,
+      subject: `Your ${client.companyName} client portal access`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#1b2a4a">
+          <h2 style="color:#1b2a4a">Welcome to the ${client.companyName} portal</h2>
+          <p>An account has been created so you can review your projects, invoices, and message your project manager.</p>
+          <table style="margin:16px 0;font-size:14px">
+            <tr><td style="padding:4px 12px 4px 0"><b>Login</b></td><td>${email}</td></tr>
+            <tr><td style="padding:4px 12px 4px 0"><b>Temporary password</b></td><td>${tempPassword}</td></tr>
+          </table>
+          <p><a href="${loginUrl}" style="background:#1b2a4a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Open the portal</a></p>
+          <p style="color:#888;font-size:12px">Please change your password after your first sign-in.</p>
+        </div>`,
+    });
+  } catch (err) {
+    logger.error(`Portal invite email failed for ${email}: ${err.message}`);
+  }
+
+  await AuditLog.create({
+    action: 'client.portal_invited',
+    entity: 'Client',
+    entityId: client._id,
+    performedBy: req.user._id,
+    metadata: { portalUser: user._id, email },
+  });
+
+  return successResponse(
+    res,
+    { email, portalUserId: user._id },
+    'Portal invitation sent successfully'
+  );
+});
+
 /* ── GET TAGS ───────────────────────────────────────────────────────── */
 export const getClientTags = asyncHandler(async (req, res) => {
   const tags = await Client.distinct('tags', { isDeleted: false });
@@ -519,4 +603,5 @@ export default {
   setPrimaryContact,
   getClientTags,
   getStatusLog,
+  inviteClientPortalUser,
 };

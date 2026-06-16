@@ -3,6 +3,7 @@ import React, { Suspense, lazy } from 'react';
 import ProtectedRoute from '../components/common/ProtectedRoute.jsx';
 import AuthLayout from '../components/layout/AuthLayout.jsx';
 import AppLayout from '../components/layout/AppLayout.jsx';
+import PortalLayout from '../components/layout/PortalLayout.jsx';
 
 // Loader component (PageLoader)
 const PageLoader = () => (
@@ -62,6 +63,14 @@ const RevenueReportPage = lazy(() => import('../pages/reports/RevenueReportPage.
 const EmployeeReportPage = lazy(() => import('../pages/reports/EmployeeReportPage.jsx'));
 const ClientReportPage = lazy(() => import('../pages/reports/ClientReportPage.jsx'));
 
+// Client portal
+const PortalDashboardPage = lazy(() => import('../pages/portal/PortalDashboardPage.jsx'));
+const PortalProjectsPage = lazy(() => import('../pages/portal/PortalProjectsPage.jsx'));
+const PortalProjectDetailPage = lazy(() => import('../pages/portal/PortalProjectDetailPage.jsx'));
+const PortalInvoicesPage = lazy(() => import('../pages/portal/PortalInvoicesPage.jsx'));
+const PortalMessagesPage = lazy(() => import('../pages/portal/PortalMessagesPage.jsx'));
+const ClientMessagesPage = lazy(() => import('../pages/ClientMessagesPage.jsx'));
+
 const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage.jsx'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage.jsx'));
 const StyleGuidePage = lazy(() => import('../pages/StyleGuidePage.jsx'));
@@ -107,6 +116,22 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // Client portal (separate premium layout, client role only)
+  {
+    element: <ProtectedRoute requiredRoles={['client']} />,
+    children: [
+      {
+        element: <PortalLayout />,
+        children: [
+          { path: '/portal', element: lazyLoad(PortalDashboardPage) },
+          { path: '/portal/projects', element: lazyLoad(PortalProjectsPage) },
+          { path: '/portal/projects/:id', element: lazyLoad(PortalProjectDetailPage) },
+          { path: '/portal/invoices', element: lazyLoad(PortalInvoicesPage) },
+          { path: '/portal/messages', element: lazyLoad(PortalMessagesPage) },
+        ],
+      },
+    ],
+  },
   // Protected Route for manager+
   {
     element: <ProtectedRoute requiredRoles={['super_admin', 'admin', 'manager']} />,
@@ -114,6 +139,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
+          { path: '/client-messages', element: lazyLoad(ClientMessagesPage) },
           { path: '/clients', element: lazyLoad(ClientsPage) },
           { path: '/clients/new', element: lazyLoad(ClientCreatePage) },
           { path: '/clients/:id', element: lazyLoad(ClientProfilePage) },

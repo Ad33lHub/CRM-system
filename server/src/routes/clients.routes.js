@@ -11,6 +11,7 @@ import {
   setPrimaryContact,
   getClientTags,
   getStatusLog,
+  inviteClientPortalUser,
 } from '../controllers/clients.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { checkPermission, checkRole } from '../middleware/rbac.middleware.js';
@@ -61,6 +62,9 @@ router.delete('/:id', verifyToken, checkPermission('clients', 'delete'), deleteC
 
 // Restore
 router.post('/:id/restore', verifyToken, checkRole('super_admin', 'admin'), restoreClient);
+
+// Invite (provision a client-portal login) — admin only
+router.post('/:id/invite', verifyToken, checkRole('super_admin', 'admin'), inviteClientPortalUser);
 
 // Contacts
 router.post(

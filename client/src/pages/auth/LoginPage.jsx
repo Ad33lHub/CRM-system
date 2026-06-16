@@ -38,7 +38,7 @@ export default function LoginPage() {
         navigate('/tasks');
         break;
       case 'client':
-        navigate('/projects');
+        navigate('/portal');
         break;
       default:
         navigate('/dashboard');

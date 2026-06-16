@@ -22,6 +22,7 @@ import revenueAnalyticsRoutes from './revenueAnalytics.routes.js';
 import employeeAnalyticsRoutes from './employeeAnalytics.routes.js';
 import clientAnalyticsRoutes from './clientAnalytics.routes.js';
 import exportRoutes from './export.routes.js';
+import portalRoutes from './portal.routes.js';
 
 const router = Router();
 
@@ -48,5 +49,6 @@ router.use('/proposals', proposalsRoutes);
 router.use('/tools', toolsRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/admin', adminRoutes);
+router.use('/portal', portalRoutes);
 
 export default router;
