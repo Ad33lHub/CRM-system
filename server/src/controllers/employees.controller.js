@@ -90,6 +90,11 @@ export const createEmployee = asyncHandler(async (req, res) => {
     emergencyContact,
   } = req.body;
 
+  // Only the super admin may mint managers.
+  if (role === 'manager' && req.user.role !== 'super_admin') {
+    return errorResponse(res, 'Only the super admin can create managers', 403);
+  }
+
   // One staff = one User login + one Employee record.
   const existing = await User.findOne({ email });
   if (existing) {
@@ -137,18 +142,35 @@ export const createEmployee = asyncHandler(async (req, res) => {
 });
 
 export const updateEmployee = asyncHandler(async (req, res) => {
-  // managerType lives on the linked User, not the Employee record.
-  const { managerType, ...employeeFields } = req.body;
-  const doc = await Employee.findByIdAndUpdate(req.params.id, employeeFields, {
+  const doc = await Employee.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true,
     lean: true,
   });
   if (!doc) return errorResponse(res, 'Employee not found', 404);
-  if (managerType !== undefined) {
-    await User.findByIdAndUpdate(doc.user, { managerType: managerType || null });
-  }
   return successResponse(res, sanitizeEmployee(doc), 'Employee updated successfully');
+});
+
+/**
+ * Change an employee's security role (and manager type). Restricted to the
+ * super admin — the only one who can promote staff to/from manager, switch a
+ * manager between lead/project/hiring, or grant admin.
+ */
+export const changeEmployeeRole = asyncHandler(async (req, res) => {
+  const employee = await Employee.findById(req.params.id).lean();
+  if (!employee) return errorResponse(res, 'Employee not found', 404);
+
+  const { role, managerType } = req.body;
+  await User.findByIdAndUpdate(employee.user, {
+    role,
+    // Only managers carry a managerType; clear it for every other role.
+    managerType: role === 'manager' ? managerType : null,
+  });
+
+  const populated = await Employee.findById(employee._id)
+    .populate('user', 'firstName lastName email avatar role managerType')
+    .populate('reportsTo', 'firstName lastName email role');
+  return successResponse(res, sanitizeEmployee(populated), 'Employee role updated successfully');
 });
 
 export const deleteEmployee = asyncHandler(async (req, res) => {

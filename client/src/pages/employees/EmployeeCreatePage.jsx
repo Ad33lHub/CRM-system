@@ -9,6 +9,7 @@ import {
   useCreateEmployeeMutation,
   useGetEmployeesQuery,
 } from '../../services/employeesApi.js';
+import useAuth from '../../hooks/useAuth.js';
 import { toast } from 'sonner';
 
 // Roles that may act as a reporting manager.
@@ -16,6 +17,9 @@ const MANAGER_ROLES = ['manager', 'admin', 'super_admin'];
 
 export default function EmployeeCreatePage() {
   const navigate = useNavigate();
+  const { role: myRole } = useAuth();
+  // Only the super admin can mint managers.
+  const canMakeManager = myRole === 'super_admin';
   const [step, setStep] = useState(1);
 
   // Form States
@@ -191,7 +195,7 @@ export default function EmployeeCreatePage() {
                       <option value="developer">Developer</option>
                       <option value="designer">Designer</option>
                       <option value="qa_engineer">QA Engineer</option>
-                      <option value="manager">Manager</option>
+                      {canMakeManager && <option value="manager">Manager</option>}
                       <option value="admin">Administrator</option>
                     </select>
                   </div>

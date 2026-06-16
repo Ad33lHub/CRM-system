@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/page-header.jsx';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card.jsx';
@@ -9,13 +9,24 @@ import {
   useUpdateEmployeeMutation, 
   useGetAttendanceQuery 
 } from '../../services/employeesApi.js';
-import { useGetEmployeesQuery } from '../../services/employeesApi.js';
+import {
+  useGetEmployeesQuery,
+  useChangeEmployeeRoleMutation,
+} from '../../services/employeesApi.js';
 import useAuth from '../../hooks/useAuth.js';
 import AttachmentPreviewModal from '../../components/common/AttachmentPreviewModal.jsx';
 
 // Roles that may act as a reporting manager, and roles allowed to reassign one.
 const MANAGER_ROLES = ['manager', 'admin', 'super_admin'];
 const CAN_ASSIGN_ROLES = ['admin', 'super_admin'];
+// Roles a super admin may assign when changing an employee's security role.
+const ASSIGNABLE_ROLES = [
+  { value: 'developer', label: 'Developer' },
+  { value: 'designer', label: 'Designer' },
+  { value: 'qa_engineer', label: 'QA Engineer' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'admin', label: 'Administrator' },
+];
 import { 
   ArrowLeft, User, CreditCard, 
   Calendar, FileCheck, Upload, Loader2, Download 
@@ -84,14 +95,43 @@ export default function EmployeeDetailPage() {
 
   const isManagerRole = employee?.user?.role === 'manager';
   const currentManagerType = employee?.user?.managerType || '';
+  const isSuperAdmin = role === 'super_admin';
 
-  const handleManagerTypeChange = async (value) => {
+  // Super-admin-only role editor (promote/change role + manager type).
+  const [changeRoleApi, { isLoading: isSavingRole }] = useChangeEmployeeRoleMutation();
+  const [roleDraft, setRoleDraft] = useState('');
+  const [typeDraft, setTypeDraft] = useState('');
+
+  useEffect(() => {
+    if (employee?.user) {
+      setRoleDraft(employee.user.role || '');
+      setTypeDraft(employee.user.managerType || '');
+    }
+  }, [employee]);
+
+  const managerTypeLabel = (t) =>
+    t === 'lead_manager'
+      ? 'Lead Manager'
+      : t === 'project_manager'
+        ? 'Project Manager'
+        : t === 'hiring_manager'
+          ? 'Hiring Manager'
+          : '—';
+
+  const handleSaveRole = async () => {
+    if (roleDraft === 'manager' && !typeDraft) {
+      toast.error('Select a manager type for the Manager role');
+      return;
+    }
     try {
-      await updateEmployeeApi({ id, data: { managerType: value || null } }).unwrap();
-      toast.success('Manager type updated');
+      await changeRoleApi({
+        id,
+        data: { role: roleDraft, managerType: roleDraft === 'manager' ? typeDraft : null },
+      }).unwrap();
+      toast.success('Role updated');
       refetch();
     } catch (err) {
-      toast.error(err.data?.message || 'Failed to update manager type');
+      toast.error(err.data?.message || 'Failed to update role');
     }
   };
 
@@ -209,6 +249,7 @@ export default function EmployeeDetailPage() {
         
         {/* Profile Details Tab */}
         {activeTab === 'profile' && (
+          <>
           <Card className="border bg-white dark:bg-slate-900/50 shadow-md">
             <CardHeader>
               <CardTitle className="text-base font-bold text-slate-800 dark:text-slate-100">Profile Information</CardTitle>
@@ -254,41 +295,81 @@ export default function EmployeeDetailPage() {
                     </span>
                   )}
                 </div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-950/20 border rounded-lg">
+                  <span className="text-[10px] text-slate-400 uppercase block mb-1">Security Role</span>
+                  <span className="font-bold text-blue-500 capitalize">
+                    {employee.user?.role?.replace('_', ' ') || '—'}
+                  </span>
+                </div>
                 {isManagerRole && (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-950/20 border rounded-lg sm:col-span-2">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950/20 border rounded-lg">
                     <span className="text-[10px] text-slate-400 uppercase block mb-1">Manager Type</span>
-                    {canAssignManager ? (
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {managerTypeLabel(currentManagerType)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Role & Access — super admin only */}
+          {isSuperAdmin && (
+            <Card className="border border-amber-300/60 dark:border-amber-700/40 bg-amber-50/40 dark:bg-amber-950/10 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-base font-bold text-slate-800 dark:text-slate-100">
+                  Role &amp; Access · Super Admin
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="role-sel" className="text-[10px] text-slate-400 uppercase block">Security Role</label>
+                    <select
+                      id="role-sel"
+                      value={roleDraft}
+                      onChange={(e) => setRoleDraft(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+                    >
+                      {ASSIGNABLE_ROLES.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {roleDraft === 'manager' && (
+                    <div className="space-y-1.5">
+                      <label htmlFor="type-sel" className="text-[10px] text-slate-400 uppercase block">Manager Type</label>
                       <select
-                        value={currentManagerType}
-                        onChange={(e) => handleManagerTypeChange(e.target.value)}
-                        className="mt-0.5 flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+                        id="type-sel"
+                        value={typeDraft}
+                        onChange={(e) => setTypeDraft(e.target.value)}
+                        className="flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
                       >
                         <option value="">— Select manager type —</option>
                         <option value="lead_manager">Lead Manager (handles leads pipeline)</option>
                         <option value="project_manager">Project Manager (runs projects &amp; tasks)</option>
                         <option value="hiring_manager">Hiring Manager (registers employees)</option>
                       </select>
-                    ) : (
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {currentManagerType === 'lead_manager'
-                          ? 'Lead Manager'
-                          : currentManagerType === 'project_manager'
-                            ? 'Project Manager'
-                            : currentManagerType === 'hiring_manager'
-                              ? 'Hiring Manager'
-                              : '—'}
-                      </span>
-                    )}
-                    {canAssignManager && (
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Lead Managers access Leads; Hiring Managers can add employees.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Only the super admin can promote staff to/from Manager, switch a manager between
+                  Lead / Project / Hiring, or grant Administrator.
+                </p>
+                <Button
+                  size="sm"
+                  disabled={isSavingRole}
+                  onClick={handleSaveRole}
+                  className="gap-2"
+                >
+                  {isSavingRole ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Update Role
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          </>
         )}
 
         {/* Salary & Bank Tab */}

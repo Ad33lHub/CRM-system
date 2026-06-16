@@ -5,6 +5,7 @@ import {
   createEmployee,
   updateEmployee,
   deleteEmployee,
+  changeEmployeeRole,
 } from '../controllers/employees.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import {
@@ -16,6 +17,7 @@ import { validate } from '../middleware/validate.middleware.js';
 import {
   createEmployeeSchema,
   updateEmployeeSchema,
+  changeRoleSchema,
   employeeQuerySchema,
 } from '../validators/employee.validator.js';
 
@@ -45,6 +47,15 @@ router.patch(
   checkRole('super_admin', 'admin'),
   validate({ body: updateEmployeeSchema }),
   updateEmployee
+);
+
+// Promote/change an employee's security role + manager type — super_admin only.
+router.patch(
+  '/:id/role',
+  verifyToken,
+  checkRole('super_admin'),
+  validate({ body: changeRoleSchema }),
+  changeEmployeeRole
 );
 
 router.delete('/:id', verifyToken, checkRole('super_admin'), deleteEmployee);

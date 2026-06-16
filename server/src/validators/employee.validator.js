@@ -52,7 +52,6 @@ export const createEmployeeSchema = z
 export const updateEmployeeSchema = z.object({
   department: z.enum(DEPARTMENTS).optional(),
   designation: z.string().trim().min(2).max(100).optional(),
-  managerType: z.enum(MANAGER_TYPES).nullable().optional(),
   reportsTo: REPORTS_TO,
   skills: z.array(z.string().trim()).optional(),
   isActive: z.boolean().optional(),
@@ -64,6 +63,17 @@ export const updateEmployeeSchema = z.object({
     })
     .optional(),
 });
+
+// Changing an employee's security role (and manager type) — super_admin only.
+export const changeRoleSchema = z
+  .object({
+    role: z.enum(ASSIGNABLE_ROLES),
+    managerType: z.enum(MANAGER_TYPES).nullable().optional(),
+  })
+  .refine((d) => d.role !== 'manager' || Boolean(d.managerType), {
+    message: 'Manager type is required when the role is Manager',
+    path: ['managerType'],
+  });
 
 export const terminateSchema = z.object({
   reason: z.string().trim().min(10).max(500),

@@ -39,6 +39,17 @@ export const employeesApi = baseApi.injectEndpoints({
         { type: 'Employee', id: 'LIST' },
       ],
     }),
+    changeEmployeeRole: builder.mutation({
+      query: ({ id, data }) => ({
+        url: `/employees/${id}/role`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'Employee', id },
+        { type: 'Employee', id: 'LIST' },
+      ],
+    }),
     getAttendance: builder.query({
       query: (id) => `/employees/${id}/attendance`,
       providesTags: (result, error, id) => [{ type: 'Employee', id: `ATTENDANCE_${id}` }],
@@ -59,6 +70,7 @@ export const {
   useGetEmployeeByIdQuery,
   useCreateEmployeeMutation,
   useUpdateEmployeeMutation,
+  useChangeEmployeeRoleMutation,
   useGetAttendanceQuery,
   useApplyLeaveMutation,
 } = employeesApi;
