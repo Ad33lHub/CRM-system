@@ -1,5 +1,8 @@
 import mongoose from 'mongoose';
 import { baseSchemaOptions } from '../config/mongoose.js';
+import Settings from './Settings.model.js';
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const lineItemSchema = new mongoose.Schema(
   {
@@ -73,20 +76,30 @@ invoiceSchema.pre('validate', async function computeAndNumber(next) {
       0
     );
     this.subtotal = Math.round(subtotal * 100) / 100;
-    this.taxAmount = Math.round((this.subtotal * (this.taxPercent || 0)) / 100 * 100) / 100;
-    this.discountAmount = Math.round((this.subtotal * (this.discountPercent || 0)) / 100 * 100) / 100;
+    this.taxAmount = Math.round(((this.subtotal * (this.taxPercent || 0)) / 100) * 100) / 100;
+    this.discountAmount =
+      Math.round(((this.subtotal * (this.discountPercent || 0)) / 100) * 100) / 100;
     this.total = Math.round((this.subtotal + this.taxAmount - this.discountAmount) * 100) / 100;
 
     if (this.isNew && !this.invoiceNumber) {
       const year = new Date().getFullYear();
-      const prefix = `INV-${year}-`;
+      // Base prefix comes from system settings (Super Admin–managed); default INV-.
+      let basePrefix = 'INV-';
+      try {
+        const { invoiceDefaults } = await Settings.getSingleton();
+        if (invoiceDefaults?.invoicePrefix) basePrefix = invoiceDefaults.invoicePrefix;
+      } catch {
+        // settings unavailable — keep the default prefix
+      }
+      const prefix = `${basePrefix}${year}-`;
       const last = await this.constructor
-        .findOne({ invoiceNumber: new RegExp(`^${prefix}`) })
+        .findOne({ invoiceNumber: new RegExp(`^${escapeRegex(prefix)}`) })
         .sort({ invoiceNumber: -1 })
         .lean();
       let seq = 1;
       if (last && last.invoiceNumber) {
-        seq = parseInt(last.invoiceNumber.split('-')[2], 10) + 1;
+        const parsed = parseInt(last.invoiceNumber.split('-').pop(), 10);
+        if (!Number.isNaN(parsed)) seq = parsed + 1;
       }
       this.invoiceNumber = `${prefix}${String(seq).padStart(4, '0')}`;
     }

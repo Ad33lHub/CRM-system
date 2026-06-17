@@ -649,7 +649,7 @@ function pct(n) {
  * Render a single invoice to a branded PDF buffer.
  * Expects a populated invoice (client + project) as a plain object.
  */
-export function exportInvoicePdf(invoice, generatedBy = 'System') {
+export function exportInvoicePdf(invoice, generatedBy = 'System', options = {}) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const chunks = [];
@@ -729,7 +729,6 @@ export function exportInvoicePdf(invoice, generatedBy = 'System') {
     );
 
     // Totals
-    doc.moveDown(1);
     const totals = [
       ['Subtotal', money(invoice.subtotal)],
       ...(invoice.discountAmount
@@ -742,6 +741,12 @@ export function exportInvoicePdf(invoice, generatedBy = 'System') {
       ['Paid', money(invoice.paidAmount)],
       ['Amount Due', money(Math.max(0, (invoice.total || 0) - (invoice.paidAmount || 0)))],
     ];
+    // Keep the whole totals block together — start a fresh page only if it
+    // genuinely won't fit (prevents stray/blank pages from absolute positioning).
+    const totalsHeight = totals.length * 18 + 24;
+    if (doc.y + totalsHeight > doc.page.height - 90) doc.addPage();
+    else doc.moveDown(1);
+
     const tx = 330;
     let ty = doc.y;
     totals.forEach(([label, val]) => {
@@ -751,28 +756,36 @@ export function exportInvoicePdf(invoice, generatedBy = 'System') {
       doc.text(val, tx + 110, ty, { width: 105, align: 'right' });
       ty += isTotal ? 20 : 16;
     });
+    doc.y = ty; // keep the flow cursor in sync after absolute writes
 
     if (invoice.notes) {
-      doc.moveDown(2);
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(10)
-        .text('Notes', 50, ty + 16);
+      if (doc.y + 60 > doc.page.height - 90) doc.addPage();
+      else doc.moveDown(1.5);
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#333333').text('Notes', 50, doc.y);
       doc
         .font('Helvetica')
         .fontSize(10)
         .fillColor('#555555')
-        .text(invoice.notes, 50, ty + 32, {
-          width: doc.page.width - 100,
-        });
+        .text(invoice.notes, 50, doc.y + 4, { width: doc.page.width - 100 });
     }
 
-    // Footer pinned to the bottom of the current page. Temporarily drop the
+    // Footer pinned to the bottom of the final page. Temporarily drop the
     // bottom margin so PDFKit doesn't spill the footer onto a fresh page.
     const savedBottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
+    if (options.footerNote) {
+      doc
+        .fontSize(9)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text(options.footerNote, 50, doc.page.height - 66, {
+          align: 'center',
+          width: doc.page.width - 100,
+          lineBreak: false,
+        });
+    }
     doc
-      .fontSize(9)
+      .fontSize(8)
       .fillColor('#888888')
       .font('Helvetica-Oblique')
       .text(

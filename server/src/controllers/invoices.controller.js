@@ -1,5 +1,6 @@
 import Invoice from '../models/Invoice.model.js';
 import User from '../models/User.model.js';
+import Settings from '../models/Settings.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { successResponse, paginatedResponse, errorResponse } from '../utils/apiResponse.js';
 import { getPaginationParams } from '../utils/pagination.js';
@@ -195,14 +196,18 @@ export const createInvoice = asyncHandler(async (req, res) => {
   const { client, project, lineItems, taxPercent, discountPercent, currency, dueDate, notes } =
     req.body;
 
+  // Apply system invoice defaults for anything the request didn't specify.
+  const { invoiceDefaults: defaults = {} } = await Settings.getSingleton();
+  const termsDays = defaults.paymentTermsDays ?? 14;
+
   const created = await Invoice.create({
     client,
     project: project || null,
     lineItems,
-    taxPercent,
+    taxPercent: taxPercent ?? defaults.taxRate ?? 0,
     discountPercent,
-    currency,
-    dueDate,
+    currency: currency || defaults.currency || 'PKR',
+    dueDate: dueDate || new Date(Date.now() + termsDays * 24 * 60 * 60 * 1000),
     notes,
     createdBy: req.user._id,
   });
@@ -377,7 +382,10 @@ export const generateInvoicePdf = asyncHandler(async (req, res) => {
   const generatedBy = req.user
     ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.name || 'System'
     : 'System';
-  const buffer = await exportInvoicePdf(invoice, generatedBy);
+  const { invoiceDefaults: defaults = {} } = await Settings.getSingleton();
+  const buffer = await exportInvoicePdf(invoice, generatedBy, {
+    footerNote: defaults.footerNote,
+  });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
