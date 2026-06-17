@@ -93,8 +93,19 @@ export default function LeadsPage() {
   const [updateLead] = useUpdateLeadMutation();
   const [deleteLead] = useDeleteLeadMutation();
 
-  const leads = leadsResponse?.data || [];
-  const members = membersResponse?.data || [];
+  // The API serializes Mongoose docs with an `id` virtual and strips `_id`
+  // (see server config/mongoose.js). This page references `lead._id` throughout,
+  // so backfill `_id` from `id` to keep every id read/delete/drag working.
+  const leads = useMemo(
+    () => (leadsResponse?.data || []).map((lead) => ({ ...lead, _id: lead._id || lead.id })),
+    [leadsResponse]
+  );
+  // Members come back either as serialized docs (`id`, no `_id`) or lean (`_id`,
+  // no `id`); normalize so the assignee dropdowns (`value={m._id}`) always work.
+  const members = useMemo(
+    () => (membersResponse?.data || []).map((m) => ({ ...m, _id: m._id || m.id })),
+    [membersResponse]
+  );
 
   // Local state for layout & views
   const [view, setView] = useState(() => localStorage.getItem('leads_view') || 'kanban');
