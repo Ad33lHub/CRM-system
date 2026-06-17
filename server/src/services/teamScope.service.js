@@ -32,3 +32,24 @@ export async function getManagedTeamUserIds(user) {
   directReports.forEach((e) => e.user && ids.add(e.user.toString()));
   return [...ids];
 }
+
+/**
+ * Resolve the set of client ids a manager is responsible for through project
+ * staffing: the client of any project the manager owns or sits on the team of.
+ * Lets a manager bill / see the clients tied to their projects even when the
+ * client's `assignedTo` account manager hasn't been set.
+ *
+ * @param {{ _id: import('mongoose').Types.ObjectId }} user
+ * @returns {Promise<string[]>} distinct client-id strings
+ */
+export async function getManagedClientIds(user) {
+  const projects = await Project.find({
+    $or: [{ createdBy: user._id }, { 'team.user': user._id }],
+  })
+    .select('client')
+    .lean();
+
+  const ids = new Set();
+  projects.forEach((p) => p.client && ids.add(p.client.toString()));
+  return [...ids];
+}

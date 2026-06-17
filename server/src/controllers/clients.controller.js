@@ -15,19 +15,19 @@ import {
 import crypto from 'crypto';
 import { getPaginationParams, buildPaginationMeta } from '../utils/pagination.js';
 import { createNotification } from '../services/notification.service.js';
-import { getManagedTeamUserIds } from '../services/teamScope.service.js';
+import { getManagedTeamUserIds, getManagedClientIds } from '../services/teamScope.service.js';
 import { queueEmail } from '../services/email.service.js';
 import logger from '../utils/logger.js';
 
 /* ── Visibility scope ───────────────────────────────────────────────────
-   Visibility is ASSIGNMENT-based, keyed off Client.assignedTo (the account
-   manager):
-     • admins              → every client (unrestricted)
-     • manager             → clients assigned to anyone on their team
-                             (themselves + direct reports + project teammates)
-     • other clients:read  → only clients assigned to themselves
-   Unassigned clients (assignedTo = null) have no owner, so only admins see
-   them — a manager must be assigned a client before it appears.
+   A manager sees a client when EITHER:
+     • the client is assigned (Client.assignedTo) to anyone on their team
+       (themselves + direct reports + project teammates), OR
+     • the client owns a project the manager runs (owns or sits on the team
+       of) — so assigning a manager a project surfaces that project's client.
+   Admins see every client; other clients:read roles see only clients
+   assigned to themselves. Unassigned clients with no managed project stay
+   admin-only.
    ─────────────────────────────────────────────────────────────────────── */
 const ADMIN_ROLES = ['super_admin', 'admin'];
 
@@ -42,7 +42,12 @@ async function scopeUserIds(user) {
 async function clientScopeFilter(user) {
   const ids = await scopeUserIds(user);
   if (!ids) return null;
-  return { assignedTo: { $in: ids } };
+  const or = [{ assignedTo: { $in: ids } }];
+  if (user.role === 'manager') {
+    const clientIds = await getManagedClientIds(user);
+    if (clientIds.length) or.push({ _id: { $in: clientIds } });
+  }
+  return { $or: or };
 }
 
 // True if the requester may see/act on this (populated or raw) client.
@@ -51,7 +56,13 @@ async function canAccessClient(user, client) {
   if (!ids) return true;
   const set = new Set(ids.map(String));
   const assigned = client.assignedTo?._id?.toString() || client.assignedTo?.toString();
-  return Boolean(assigned && set.has(assigned));
+  if (assigned && set.has(assigned)) return true;
+  if (user.role === 'manager') {
+    const clientIds = await getManagedClientIds(user);
+    const clientId = client._id?.toString() || client.id?.toString();
+    return clientIds.includes(clientId);
+  }
+  return false;
 }
 
 /* ── CREATE CLIENT ──────────────────────────────────────────────────── */
