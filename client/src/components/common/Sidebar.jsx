@@ -8,6 +8,20 @@ import { Button } from '../ui/button.jsx';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar.jsx';
 import { Badge } from '../ui/badge.jsx';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip.jsx';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '../ui/dropdown-menu.jsx';
+import {
   LayoutDashboard,
   CheckSquare,
   User,
@@ -28,34 +42,33 @@ import {
   History,
   UserCheck,
   FileText,
+  MoreVertical,
 } from 'lucide-react';
 import { useGetTasksQuery } from '../../services/tasksApi.js';
 import { useGetChannelsQuery } from '../../services/chatApi.js';
 
-export default function Sidebar({
-  isCollapsed,
-  toggleSidebar,
-  isMobileOpen,
-  closeMobile,
-}) {
+const ITEM_BASE =
+  'group relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-colors duration-150';
+const ITEM_ACTIVE = 'bg-blue-500/10 text-blue-400';
+const ITEM_INACTIVE = 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100';
+
+export default function Sidebar({ isCollapsed, toggleSidebar, isMobileOpen, closeMobile }) {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user, role } = useAuth();
   const [logoutApi] = useLogoutMutation();
 
-  // RTK Query hooks for badges
+  // RTK Query hooks for badges.
   // "My Tasks" badge counts only the user's own overdue tasks (scope=mine).
   const { data: tasksData } = useGetTasksQuery({ scope: 'mine' }, { skip: !user });
   const { data: channelsData } = useGetChannelsQuery(undefined, { skip: !user });
 
-  // Calculate overdue tasks count
   const tasks = tasksData?.data || [];
   const overdueCount = tasks.filter(
     (t) => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date()
   ).length;
 
-  // Sum unread counts from channels
   const channels = channelsData?.data || [];
   const unreadChatCount = Array.isArray(channels)
     ? channels.reduce((sum, ch) => sum + (ch.unreadCount || 0), 0)
@@ -65,7 +78,7 @@ export default function Sidebar({
     try {
       await logoutApi().unwrap();
     } catch {
-      // Ignored: cleanup client anyway
+      // Ignored: clean up client state anyway.
     }
     dispatch(clearCredentials());
     navigate('/login');
@@ -77,313 +90,300 @@ export default function Sidebar({
     return allowedRoles.includes(role);
   };
 
-  const menuItems = [
+  // Same items / roles / destinations as before — grouped only for presentation.
+  const MANAGERS = ['super_admin', 'admin', 'manager'];
+  const navGroups = [
     {
-      label: 'Dashboard',
-      to: '/dashboard',
-      icon: LayoutDashboard,
-      roles: 'all',
+      label: 'Main',
+      items: [
+        { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, roles: 'all' },
+        {
+          label: 'My Tasks',
+          to: '/tasks',
+          icon: CheckSquare,
+          roles: 'all',
+          badge: overdueCount > 0 ? overdueCount : null,
+          badgeVariant: 'destructive',
+        },
+        { label: 'Projects', to: '/projects', icon: FolderKanban, roles: 'all' },
+        {
+          label: 'Chat',
+          to: '/chat',
+          icon: MessageSquare,
+          roles: 'all',
+          badge: unreadChatCount > 0 ? unreadChatCount : null,
+          badgeVariant: 'default',
+        },
+        { label: 'Profile', to: '/profile', icon: User, roles: 'all' },
+      ],
     },
     {
-      label: 'My Tasks',
-      to: '/tasks',
-      icon: CheckSquare,
-      roles: 'all',
-      badge: overdueCount > 0 ? overdueCount : null,
-      badgeVariant: 'destructive',
+      label: 'Management',
+      items: [
+        { label: 'Client Messages', to: '/client-messages', icon: MessageSquare, roles: MANAGERS },
+        { label: 'Clients', to: '/clients', icon: Building2, roles: MANAGERS },
+        {
+          label: 'Leads',
+          to: '/leads',
+          icon: TrendingUp,
+          roles: MANAGERS,
+          // Managers only see Leads if they are a lead-type manager.
+          canView: (u) => u?.role !== 'manager' || u?.managerType === 'lead_manager',
+        },
+        { label: 'Invoices', to: '/invoices', icon: Receipt, roles: MANAGERS },
+        { label: 'Team Directory', to: '/team', icon: Users, roles: MANAGERS },
+        { label: 'Attendance', to: '/attendance', icon: Calendar, roles: MANAGERS },
+        { label: 'Reports', to: '/reports', icon: BarChart3, roles: MANAGERS },
+        { label: 'Proposals', to: '/proposals/new', icon: FileText, roles: MANAGERS },
+        {
+          label: 'Employees',
+          to: '/employees',
+          icon: UserCheck,
+          roles: MANAGERS,
+          // Among managers, only hiring managers get the staff-management page.
+          canView: (u) => u?.role !== 'manager' || u?.managerType === 'hiring_manager',
+        },
+      ],
     },
     {
-      label: 'Projects',
-      to: '/projects',
-      icon: FolderKanban,
-      roles: 'all',
-    },
-    {
-      label: 'Chat',
-      to: '/chat',
-      icon: MessageSquare,
-      roles: 'all',
-      badge: unreadChatCount > 0 ? unreadChatCount : null,
-      badgeVariant: 'default',
-    },
-    {
-      label: 'Client Messages',
-      to: '/client-messages',
-      icon: MessageSquare,
-      roles: ['super_admin', 'admin', 'manager'],
-    },
-    {
-      label: 'Profile',
-      to: '/profile',
-      icon: User,
-      roles: 'all',
-    },
-    {
-      label: 'Clients',
-      to: '/clients',
-      icon: Building2,
-      roles: ['super_admin', 'admin', 'manager'],
-    },
-    {
-      label: 'Leads',
-      to: '/leads',
-      icon: TrendingUp,
-      roles: ['super_admin', 'admin', 'manager'],
-      // Managers only see Leads if they are a lead-type manager.
-      canView: (u) => u?.role !== 'manager' || u?.managerType === 'lead_manager',
-    },
-    {
-      label: 'Invoices',
-      to: '/invoices',
-      icon: Receipt,
-      roles: ['super_admin', 'admin', 'manager'],
-    },
-    {
-      label: 'Team Directory',
-      to: '/team',
-      icon: Users,
-      roles: ['super_admin', 'admin', 'manager'],
-    },
-    {
-      label: 'Attendance',
-      to: '/attendance',
-      icon: Calendar,
-      roles: ['super_admin', 'admin', 'manager'],
-    },
-    {
-      label: 'Reports',
-      to: '/reports',
-      icon: BarChart3,
-      roles: ['super_admin', 'admin', 'manager'],
-    },
-    {
-      label: 'Proposals',
-      to: '/proposals/new',
-      icon: FileText,
-      roles: ['super_admin', 'admin', 'manager'],
-    },
-    {
-      label: 'Employees',
-      to: '/employees',
-      icon: UserCheck,
-      roles: ['super_admin', 'admin', 'manager'],
-      // Among managers, only hiring managers get the staff-management page;
-      // other managers use the read-only Team Directory instead.
-      canView: (u) => u?.role !== 'manager' || u?.managerType === 'hiring_manager',
-    },
-    {
-      label: 'AI Tools',
-      to: '/tools/email-writer',
-      icon: Cpu,
-      roles: ['super_admin', 'admin'],
-    },
-    {
-      label: 'Activity Monitor',
-      to: '/admin/activity',
-      icon: History,
-      roles: ['super_admin'],
-    },
-    {
-      label: 'System Settings',
-      to: '/settings',
-      icon: Settings,
-      roles: ['super_admin', 'admin'],
+      label: 'Admin',
+      items: [
+        { label: 'AI Tools', to: '/tools/email-writer', icon: Cpu, roles: ['super_admin', 'admin'] },
+        { label: 'Activity Monitor', to: '/admin/activity', icon: History, roles: ['super_admin'] },
+        { label: 'System Settings', to: '/settings', icon: Settings, roles: ['super_admin', 'admin'] },
+      ],
     },
   ];
 
-  const filteredItems = menuItems.filter((item) => {
-    if (!isRoleAllowed(item.roles)) return false;
-    if (item.canView && !item.canView(user)) return false;
-    // Show mobile-only items only when mobile sidebar is open
-    if (item.mobileOnly && !isMobileOpen) return false;
-    return true;
-  });
+  const itemVisible = (item) =>
+    isRoleAllowed(item.roles) && (!item.canView || item.canView(user));
 
-  const isActive = (path) => {
-    if (path === '/dashboard') {
-      return location.pathname === '/dashboard';
-    }
-    return location.pathname.startsWith(path);
+  const isActive = (path) =>
+    path === '/dashboard' ? location.pathname === '/dashboard' : location.pathname.startsWith(path);
+
+  const getRoleLabel = (r) =>
+    r ? r.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '';
+
+  const canSeeSettings = ['super_admin', 'admin'].includes(role);
+
+  // ── Renderers (shared by desktop + mobile) ──
+  const renderItem = (item, collapsed, onClick) => {
+    const Icon = item.icon;
+    const active = isActive(item.to);
+    const link = (
+      <Link
+        key={item.to}
+        to={item.to}
+        onClick={onClick}
+        className={cn(ITEM_BASE, collapsed ? 'justify-center px-0' : 'px-3', active ? ITEM_ACTIVE : ITEM_INACTIVE)}
+      >
+        {active && (
+          <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-blue-500" />
+        )}
+        <span className="relative flex items-center justify-center">
+          <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
+          {collapsed && item.badge != null && (
+            <span
+              className={cn(
+                'absolute -right-1.5 -top-1.5 h-2 w-2 rounded-full ring-2 ring-slate-900',
+                item.badgeVariant === 'destructive' ? 'bg-rose-500' : 'bg-blue-400'
+              )}
+            />
+          )}
+        </span>
+        {!collapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
+        {!collapsed && item.badge != null && (
+          <Badge
+            variant={item.badgeVariant || 'default'}
+            className="ml-auto h-5 min-w-5 shrink-0 justify-center px-1.5"
+          >
+            {item.badge}
+          </Badge>
+        )}
+      </Link>
+    );
+
+    if (!collapsed) return link;
+    return (
+      <Tooltip key={item.to}>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">
+          {item.label}
+          {item.badge != null ? ` · ${item.badge}` : ''}
+        </TooltipContent>
+      </Tooltip>
+    );
   };
 
-  const getRoleLabel = (r) => {
-    if (!r) return '';
-    return r.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const renderNav = (collapsed, onClick) => (
+    <nav className="sidebar-nav flex-1 space-y-1 px-3 py-4">
+      {navGroups.map((group, idx) => {
+        const items = group.items.filter(itemVisible);
+        if (!items.length) return null;
+        return (
+          <div key={group.label} className="space-y-1">
+            {collapsed ? (
+              idx > 0 && <div className="mx-auto my-3 h-px w-8 bg-slate-800" />
+            ) : (
+              <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {group.label}
+              </p>
+            )}
+            {items.map((item) => renderItem(item, collapsed, onClick))}
+          </div>
+        );
+      })}
+    </nav>
+  );
+
+  const renderUserMenu = (collapsed, onAfterNav) => {
+    if (!user) return null;
+    const initials = user.name?.slice(0, 2)?.toUpperCase() || 'US';
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'flex items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-slate-800/60',
+              collapsed ? 'justify-center' : 'w-full'
+            )}
+          >
+            <Avatar className="h-9 w-9 border border-slate-700/50">
+              <AvatarImage src={user.avatarUrl} alt={user.name} />
+              <AvatarFallback className="bg-slate-700 font-semibold uppercase text-slate-200">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-100">{user.name}</p>
+                  <p className="truncate text-[11px] capitalize text-slate-400">
+                    {getRoleLabel(role)}
+                  </p>
+                </div>
+                <MoreVertical className="h-4 w-4 shrink-0 text-slate-500" />
+              </>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align={collapsed ? 'center' : 'end'} className="w-52">
+          <DropdownMenuLabel className="truncate">{user.name}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              navigate('/profile');
+              onAfterNav?.();
+            }}
+          >
+            <User className="h-4 w-4" />
+            Profile
+          </DropdownMenuItem>
+          {canSeeSettings && (
+            <DropdownMenuItem
+              onClick={() => {
+                navigate('/settings');
+                onAfterNav?.();
+              }}
+            >
+              <Settings className="h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handleLogout}
+            className="text-rose-500 focus:text-rose-500"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   };
 
-  const handleNavClick = () => {
-    if (isMobileOpen && closeMobile) closeMobile();
-  };
-
-  const sidebarContent = (
-    <aside
+  const brand = (collapsed) => (
+    <div
       className={cn(
-        'h-full flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-100 transition-all duration-300 z-30 shrink-0',
-        // Desktop & Tablet
-        'hidden md:flex',
-        isCollapsed ? 'w-[72px]' : 'w-[260px]'
+        'flex h-16 select-none items-center gap-2 border-b border-slate-800/60',
+        collapsed ? 'justify-center px-0' : 'px-6'
       )}
     >
-      {/* Brand logo header */}
-      <div
+      <img
+        src="/verixsoft-logo.png"
+        alt="Verixsoft"
+        className="h-7 w-7 shrink-0 select-none object-contain"
+      />
+      {!collapsed && (
+        <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-lg font-bold tracking-tight text-transparent">
+          Verixsoft CRM
+        </span>
+      )}
+    </div>
+  );
+
+  // ── Desktop / tablet ──
+  const desktopSidebar = (
+    <TooltipProvider delayDuration={300}>
+      <aside
         className={cn(
-          'h-16 flex items-center px-6 gap-2 select-none border-b border-slate-800/60',
-          isCollapsed && 'justify-center px-0'
+          'z-30 hidden h-full shrink-0 flex-col border-r border-slate-200 bg-slate-900 text-slate-100 transition-[width] duration-200 ease-in-out dark:border-slate-800 md:flex',
+          isCollapsed ? 'w-[72px]' : 'w-[260px]'
         )}
       >
-        <img
-          src="/verixsoft-logo.png"
-          alt="Verixsoft"
-          className="h-7 w-7 shrink-0 select-none object-contain"
-        />
-        {!isCollapsed && (
-          <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-            Verixsoft CRM
-          </span>
-        )}
-      </div>
+        {brand(isCollapsed)}
+        {renderNav(isCollapsed, undefined)}
 
-      {/* Navigation links */}
-      <nav className="flex-1 px-4 py-6 space-y-1 sidebar-nav">
-        {filteredItems.map((item) => {
-          const active = isActive(item.to);
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              style={{ padding: '16px 12px' }}
-              className={cn(
-                'flex items-center gap-3 rounded-[8px] text-sm font-medium transition-all group relative',
-                active
-                  ? 'bg-[#3b82f6] text-white shadow-md shadow-blue-900/20'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
-              )}
-            >
-              <Icon
-                className={cn(
-                  'h-5 w-5 shrink-0 transition-transform',
-                  !active && 'group-hover:scale-110'
-                )}
-              />
-              {!isCollapsed && <span className="truncate">{item.label}</span>}
-              {!isCollapsed && item.badge && (
-                <Badge variant={item.badgeVariant || 'default'} className="ml-auto shrink-0">
-                  {item.badge}
-                </Badge>
-              )}
-
-              {/* Tooltip for collapsed mode */}
-              {isCollapsed && (
-                <div className="absolute left-full ml-3 px-2 py-1 bg-slate-950 text-slate-200 text-xs font-semibold rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
-                  {item.label}
-                </div>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Bottom Profile / Control Section */}
-      <div className="sidebar-user-badge flex-col gap-4">
-        {/* User Card */}
-        {user && !isCollapsed && (
-          <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/30 border border-slate-800/50">
-            <Avatar className="h-10 w-10 border border-slate-700/50">
-              <AvatarImage src={user.avatarUrl} alt={user.name} />
-              <AvatarFallback className="bg-slate-700 text-slate-200 font-semibold uppercase">
-                {user.name?.slice(0, 2) || 'US'}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-slate-100 truncate">{user.name}</p>
-              <Badge
-                variant="outline"
-                className="mt-1 text-[10px] py-0 px-1.5 border-slate-700 text-slate-400 capitalize"
-              >
-                {getRoleLabel(role)}
-              </Badge>
-            </div>
-          </div>
-        )}
-
-        {/* Collapsed user avatar */}
-        {user && isCollapsed && (
-          <div className="flex justify-center group relative">
-            <Avatar className="h-10 w-10 border border-slate-700/50">
-              <AvatarImage src={user.avatarUrl} alt={user.name} />
-              <AvatarFallback className="bg-slate-700 text-slate-200 font-semibold uppercase">
-                {user.name?.slice(0, 2) || 'US'}
-              </AvatarFallback>
-            </Avatar>
-            <div className="absolute left-full ml-3 px-2 py-1 bg-slate-950 text-slate-200 text-xs font-semibold rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
-              {user.name} · {getRoleLabel(role)}
-            </div>
-          </div>
-        )}
-
-        {/* Action Controls */}
-        <div className={cn('flex flex-col gap-2', isCollapsed && 'items-center')}>
-          {/* Expand/Collapse Toggle Button */}
+        <div className="sidebar-user-badge flex-col gap-2">
+          {/* expand/collapse toggle (above the user card) */}
           <Button
             variant="ghost"
             onClick={toggleSidebar}
-            className="w-full text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 justify-start h-9 px-3 gap-3"
+            className={cn(
+              'h-9 text-slate-400 hover:bg-slate-800/60 hover:text-slate-100',
+              isCollapsed ? 'mx-auto w-9 justify-center px-0' : 'w-full justify-start gap-3 px-3'
+            )}
           >
             {isCollapsed ? (
-              <ChevronRight className="h-5 w-5 shrink-0" />
+              <ChevronRight className="h-[18px] w-[18px] shrink-0" />
             ) : (
               <>
-                <ChevronLeft className="h-5 w-5 shrink-0" />
-                <span className="text-sm font-medium">Collapse Menu</span>
+                <ChevronLeft className="h-[18px] w-[18px] shrink-0" />
+                <span className="text-sm font-medium">Collapse</span>
               </>
             )}
           </Button>
-
-          {/* Logout Button */}
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-            className="w-full text-rose-400 hover:text-rose-200 hover:bg-rose-950/20 justify-start h-9 px-3 gap-3"
-          >
-            <LogOut className="h-5 w-5 shrink-0" />
-            {!isCollapsed && <span className="text-sm font-medium">Logout</span>}
-          </Button>
+          {renderUserMenu(isCollapsed)}
         </div>
-      </div>
-    </aside>
+      </aside>
+    </TooltipProvider>
   );
 
-  // Mobile sidebar overlay
+  // ── Mobile overlay ──
   const mobileSidebar = (
     <>
-      {/* Backdrop */}
       {isMobileOpen && (
         // Decorative dismiss overlay; keyboard users close via Escape or the close button.
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={closeMobile}
-        />
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={closeMobile} />
       )}
 
-      {/* Mobile sidebar panel */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 w-[260px] flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-100 z-50 md:hidden transition-transform duration-300 ease-in-out',
+          'fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-slate-200 bg-slate-900 text-slate-100 transition-transform duration-300 ease-in-out dark:border-slate-800 md:hidden',
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        {/* Header with close */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800/60">
+        <div className="flex h-16 items-center justify-between border-b border-slate-800/60 px-6">
           <div className="flex items-center gap-2">
             <img
-          src="/verixsoft-logo.png"
-          alt="Verixsoft"
-          className="h-7 w-7 shrink-0 select-none object-contain"
-        />
-            <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              src="/verixsoft-logo.png"
+              alt="Verixsoft"
+              className="h-7 w-7 shrink-0 select-none object-contain"
+            />
+            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-lg font-bold tracking-tight text-transparent">
               Verixsoft CRM
             </span>
           </div>
@@ -397,76 +397,16 @@ export default function Sidebar({
           </Button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1 sidebar-nav">
-          {menuItems
-            .filter((item) => isRoleAllowed(item.roles) && (!item.canView || item.canView(user)))
-            .map((item) => {
-              const active = isActive(item.to);
-              const Icon = item.icon;
+        {renderNav(false, closeMobile)}
 
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={handleNavClick}
-                  style={{ padding: '16px 12px' }}
-                  className={cn(
-                    'flex items-center gap-3 rounded-[8px] text-sm font-medium transition-all',
-                    active
-                      ? 'bg-[#3b82f6] text-white shadow-md shadow-blue-900/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
-                  )}
-                >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                  {item.badge && (
-                    <Badge variant={item.badgeVariant || 'default'} className="ml-auto shrink-0">
-                      {item.badge}
-                    </Badge>
-                  )}
-                </Link>
-              );
-            })}
-        </nav>
-
-        {/* Bottom section */}
-        <div className="sidebar-user-badge flex-col gap-4">
-          {user && (
-            <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/30 border border-slate-800/50">
-              <Avatar className="h-10 w-10 border border-slate-700/50">
-                <AvatarImage src={user.avatarUrl} alt={user.name} />
-                <AvatarFallback className="bg-slate-700 text-slate-200 font-semibold uppercase">
-                  {user.name?.slice(0, 2) || 'US'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-100 truncate">{user.name}</p>
-                <Badge
-                  variant="outline"
-                  className="mt-1 text-[10px] py-0 px-1.5 border-slate-700 text-slate-400 capitalize"
-                >
-                  {getRoleLabel(role)}
-                </Badge>
-              </div>
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-            className="w-full text-rose-400 hover:text-rose-200 hover:bg-rose-950/20 justify-start h-9 px-3 gap-3"
-          >
-            <LogOut className="h-5 w-5 shrink-0" />
-            <span className="text-sm font-medium">Logout</span>
-          </Button>
-        </div>
+        <div className="sidebar-user-badge flex-col gap-2">{renderUserMenu(false, closeMobile)}</div>
       </aside>
     </>
   );
 
   return (
     <>
-      {sidebarContent}
+      {desktopSidebar}
       {mobileSidebar}
     </>
   );
