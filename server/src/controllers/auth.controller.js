@@ -8,6 +8,7 @@ import {
   errorResponse,
 } from '../utils/apiResponse.js';
 import User from '../models/User.model.js';
+import Settings from '../models/Settings.model.js';
 import AuditLog from '../models/AuditLog.model.js';
 import RefreshToken from '../models/RefreshToken.model.js';
 import { sanitizeUser } from '../utils/sanitizeResponse.js';
@@ -96,11 +97,16 @@ export const login = asyncHandler(async (req, res) => {
     return unauthorised(res, 'Invalid email or password');
   }
 
+  // Load the configurable security policy (Super Admin–managed; safe defaults).
+  const { security } = await Settings.getSingleton();
+  const maxAttempts = security?.maxLoginAttempts || 5;
+  const lockoutMinutes = security?.lockoutMinutes || 120;
+
   // Check if account is locked
   if (user.isLocked()) {
     return errorResponse(
       res,
-      'Account locked due to too many failed attempts. Try again after 2 hours.',
+      `Account locked due to too many failed attempts. Try again after ${lockoutMinutes} minutes.`,
       423
     );
   }
@@ -113,10 +119,10 @@ export const login = asyncHandler(async (req, res) => {
   // Verify password matches
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
-    await user.incrementLoginAttempts();
-    if (user.loginAttempts >= 5) {
+    await user.incrementLoginAttempts(maxAttempts, lockoutMinutes);
+    if (user.loginAttempts >= maxAttempts) {
       logger.warn('auth.account_locked', { userId: user._id, ip: req.ip });
-      return errorResponse(res, 'Account locked after 5 failed attempts', 423);
+      return errorResponse(res, `Account locked after ${maxAttempts} failed attempts`, 423);
     }
     logger.warn('auth.login_failed', { userId: user._id, ip: req.ip });
     return unauthorised(res, 'Invalid email or password');

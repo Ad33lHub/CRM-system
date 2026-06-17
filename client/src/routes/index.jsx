@@ -101,7 +101,6 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: '/dashboard', element: lazyLoad(DashboardPage) },
           { path: '/profile', element: lazyLoad(ProfilePage) },
-          { path: '/settings', element: lazyLoad(SettingsPage) },
           { path: '/settings/profile', element: lazyLoad(ProfileSettingsPage) },
           { path: '/tasks', element: lazyLoad(TasksPage) },
           { path: '/tasks/:id', element: lazyLoad(TaskDetailPage) },
@@ -184,6 +183,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/admin/activity', element: lazyLoad(ActivityDashboardPage) },
+          { path: '/settings', element: lazyLoad(SettingsPage) },
         ],
       },
     ],

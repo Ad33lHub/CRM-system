@@ -173,7 +173,10 @@ userSchema.methods.isLocked = function isLocked() {
   return Boolean(this.lockUntil && this.lockUntil.getTime() > Date.now());
 };
 
-userSchema.methods.incrementLoginAttempts = function incrementLoginAttempts() {
+userSchema.methods.incrementLoginAttempts = function incrementLoginAttempts(
+  maxAttempts = 5,
+  lockoutMinutes = 120
+) {
   if (this.lockUntil && this.lockUntil.getTime() < Date.now()) {
     this.loginAttempts = 1;
     this.lockUntil = null;
@@ -181,8 +184,8 @@ userSchema.methods.incrementLoginAttempts = function incrementLoginAttempts() {
     this.loginAttempts += 1;
   }
 
-  if (this.loginAttempts >= 5) {
-    this.lockUntil = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+  if (this.loginAttempts >= maxAttempts) {
+    this.lockUntil = new Date(Date.now() + lockoutMinutes * 60 * 1000);
   }
 
   return this.save();

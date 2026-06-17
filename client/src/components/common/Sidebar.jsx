@@ -150,7 +150,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileOpen, clos
       items: [
         { label: 'AI Tools', to: '/tools/email-writer', icon: Cpu, roles: ['super_admin', 'admin'] },
         { label: 'Activity Monitor', to: '/admin/activity', icon: History, roles: ['super_admin'] },
-        { label: 'System Settings', to: '/settings', icon: Settings, roles: ['super_admin', 'admin'] },
+        { label: 'System Settings', to: '/settings', icon: Settings, roles: ['super_admin'] },
       ],
     },
   ];
@@ -164,7 +164,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileOpen, clos
   const getRoleLabel = (r) =>
     r ? r.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '';
 
-  const canSeeSettings = ['super_admin', 'admin'].includes(role);
+  const canSeeSettings = role === 'super_admin';
 
   // ── Renderers (shared by desktop + mobile) ──
   const renderItem = (item, collapsed, onClick) => {

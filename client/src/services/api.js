@@ -77,6 +77,7 @@ export const baseApi = createApi({
     'Tool',
     'PortalThread',
     'PortalMessage',
+    'Settings',
   ],
   endpoints: () => ({}),
 });
