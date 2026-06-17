@@ -1,4 +1,5 @@
 import Invoice from '../models/Invoice.model.js';
+import User from '../models/User.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { successResponse, paginatedResponse, errorResponse } from '../utils/apiResponse.js';
 import { getPaginationParams } from '../utils/pagination.js';
@@ -35,6 +36,33 @@ function resolveClientContact(client) {
 
 function portalUrl(invoiceId) {
   return `${config.CLIENT_URL || ''}/portal/invoices/${invoiceId}`;
+}
+
+/**
+ * Surface an invoice event inside the client's portal: every portal user tied to
+ * this client gets an in-app notification linking to the portal invoice. Best-effort;
+ * never blocks the request.
+ */
+async function notifyClientPortal(clientId, { title, message, invoiceId, priority = 'normal' }) {
+  if (!clientId) return;
+  try {
+    const portalUsers = await User.find({ role: 'client', clientId }).select('_id').lean();
+    await Promise.all(
+      portalUsers.map((u) =>
+        createNotification({
+          recipient: u._id,
+          type: 'invoice',
+          title,
+          message,
+          link: `/portal/invoices/${invoiceId}`,
+          groupKey: `portal:invoice:${invoiceId}`,
+          priority,
+        })
+      )
+    );
+  } catch (err) {
+    logger.error(`Client portal invoice notification failed for ${invoiceId}: ${err.message}`);
+  }
 }
 
 async function triggerPaymentEmails(invoice, amountPaid, recordedBy) {
@@ -108,6 +136,18 @@ async function triggerPaymentEmails(invoice, amountPaid, recordedBy) {
         priority: remaining <= 0 ? 'high' : 'normal',
       });
     }
+
+    // Mirror the payment receipt inside the client's portal.
+    await notifyClientPortal(populated.client?._id || populated.client, {
+      title: `Payment received — ${populated.invoiceNumber}`,
+      message:
+        remaining <= 0
+          ? `Your invoice ${populated.invoiceNumber} is now fully paid. Thank you!`
+          : `We received ${populated.currency || 'PKR'} ${amountPaid.toLocaleString()}. Remaining balance: ${
+              populated.currency || 'PKR'
+            } ${Math.max(0, remaining).toLocaleString()}.`,
+      invoiceId: populated._id,
+    });
   } catch (err) {
     logger.error(`Payment email trigger failed for invoice ${invoice._id}: ${err.message}`);
   }
@@ -126,7 +166,10 @@ export const listInvoices = asyncHandler(async (req, res) => {
     filter.project = req.query.projectId;
   }
   if (req.user && req.user.role === 'client') {
+    // Clients only ever see their own company's issued invoices — drafts and
+    // voided invoices are internal and stay hidden from the portal.
     filter.client = req.user.clientId;
+    filter.status = { $nin: ['draft', 'void'] };
   }
   const [items, total] = await Promise.all([
     populateInvoice(Invoice.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit)),
@@ -135,9 +178,15 @@ export const listInvoices = asyncHandler(async (req, res) => {
   return paginatedResponse(res, items, page, limit, total, 'Invoice list fetched successfully');
 });
 
+// Statuses a client portal user must never see — internal drafts and voids.
+const CLIENT_HIDDEN_STATUSES = ['draft', 'void'];
+
 export const getInvoice = asyncHandler(async (req, res) => {
   const doc = await populateInvoice(Invoice.findById(req.params.id));
   if (!doc) return errorResponse(res, 'Invoice not found', 404);
+  if (req.user?.role === 'client' && CLIENT_HIDDEN_STATUSES.includes(doc.status)) {
+    return errorResponse(res, 'Invoice not found', 404);
+  }
   return successResponse(res, doc, 'Invoice fetched successfully');
 });
 
@@ -254,6 +303,15 @@ export const sendInvoice = asyncHandler(async (req, res) => {
     }).catch(() => {});
   }
 
+  // Surface the issued invoice inside the client's portal.
+  notifyClientPortal(invoice.client?._id || invoice.client, {
+    title: `New invoice ${invoice.invoiceNumber}`,
+    message: `An invoice for ${invoice.currency || 'PKR'} ${invoice.amountDue.toLocaleString()} is ready to view. Due ${
+      invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-PK') : 'soon'
+    }.`,
+    invoiceId: invoice._id,
+  }).catch(() => {});
+
   const doc = await populateInvoice(Invoice.findById(invoice._id));
   return successResponse(res, doc, `Invoice sent to ${clientEmail}`);
 });
@@ -312,6 +370,9 @@ export const recordPayment = asyncHandler(async (req, res) => {
 export const generateInvoicePdf = asyncHandler(async (req, res) => {
   const invoice = await populateInvoice(Invoice.findById(req.params.id)).lean();
   if (!invoice) return errorResponse(res, 'Invoice not found', 404);
+  if (req.user?.role === 'client' && CLIENT_HIDDEN_STATUSES.includes(invoice.status)) {
+    return errorResponse(res, 'Invoice not found', 404);
+  }
 
   const generatedBy = req.user
     ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.name || 'System'
