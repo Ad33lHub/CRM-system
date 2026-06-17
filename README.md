@@ -56,7 +56,7 @@ Architecture, goals, roles, and standards are documented in [`docs/`](./docs):
 
 ```bash
 # 1. Clone
-git clone <your-repo-url> crm-software-house
+git clone https://github.com/Ad33lHub/CRM-system crm-software-house
 cd crm-software-house
 
 # 2. Install all workspaces from the root
