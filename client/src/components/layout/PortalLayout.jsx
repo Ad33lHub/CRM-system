@@ -43,8 +43,12 @@ export default function PortalLayout() {
       <header className="sticky top-0 z-40 bg-gradient-to-r from-[#0f1f3d] via-[#16284d] to-[#1b2a4a] text-white shadow-lg">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 font-extrabold tracking-tight">
-              VX
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
+              <img
+                src="/verixsoft-logo.png"
+                alt="Verixsoft"
+                className="h-6 w-6 select-none object-contain"
+              />
             </div>
             <div className="leading-tight">
               <p className="text-sm font-bold">Client Portal</p>

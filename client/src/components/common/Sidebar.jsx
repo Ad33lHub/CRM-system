@@ -20,7 +20,6 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Activity,
   X,
   MessageSquare,
   Calendar,
@@ -232,7 +231,11 @@ export default function Sidebar({
           isCollapsed && 'justify-center px-0'
         )}
       >
-        <Activity className="h-6 w-6 text-blue-500 shrink-0" />
+        <img
+          src="/verixsoft-logo.png"
+          alt="Verixsoft"
+          className="h-7 w-7 shrink-0 select-none object-contain"
+        />
         {!isCollapsed && (
           <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
             Verixsoft CRM
@@ -375,7 +378,11 @@ export default function Sidebar({
         {/* Header with close */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800/60">
           <div className="flex items-center gap-2">
-            <Activity className="h-6 w-6 text-blue-500 shrink-0" />
+            <img
+          src="/verixsoft-logo.png"
+          alt="Verixsoft"
+          className="h-7 w-7 shrink-0 select-none object-contain"
+        />
             <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
               Verixsoft CRM
             </span>

@@ -37,6 +37,7 @@ tmp/
 scratch/
 *.jpeg
 *.png
-# …but keep committed brand assets (logos used by PDF/email rendering)
+# …but keep committed brand assets (logos used by PDF/email rendering + client UI)
 !server/src/assets/
 !server/src/assets/*.png
+!client/public/verixsoft-logo.png

@@ -2,7 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth.js';
 import { ROUTES } from '../../constants/routes.js';
 
-const LOGO_URL = 'https://verixsoft.com/icon.png';
+const LOGO_URL = '/verixsoft-logo.png';
 const BRAND = '#1B2A4A';
 
 function Logo({ className = 'h-9 w-auto' }) {
@@ -10,9 +10,9 @@ function Logo({ className = 'h-9 w-auto' }) {
     <img
       src={LOGO_URL}
       alt="Verixsoft"
-      className={`${className} select-none`}
+      className={`${className} select-none object-contain`}
       onError={(e) => {
-        e.currentTarget.src = 'https://placehold.co/96x96/1B2A4A/ffffff?text=V';
+        e.currentTarget.src = 'https://verixsoft.com/icon.png';
       }}
     />
   );
