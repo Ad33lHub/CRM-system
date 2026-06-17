@@ -15,7 +15,11 @@ const settingsSchema = new mongoose.Schema(
 
     organization: {
       companyName: { type: String, default: 'Verixsoft', maxlength: 120 },
-      address: { type: String, default: '', maxlength: 300 },
+      address: {
+        type: String,
+        default: 'Garh More, Vehari, Multan, Punjab, Pakistan',
+        maxlength: 300,
+      },
       supportEmail: { type: String, default: '', maxlength: 160 },
       logoUrl: { type: String, default: '', maxlength: 500 },
     },

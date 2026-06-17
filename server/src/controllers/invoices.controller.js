@@ -382,9 +382,12 @@ export const generateInvoicePdf = asyncHandler(async (req, res) => {
   const generatedBy = req.user
     ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.name || 'System'
     : 'System';
-  const { invoiceDefaults: defaults = {} } = await Settings.getSingleton();
+  const settings = await Settings.getSingleton();
+  const defaults = settings.invoiceDefaults || {};
+  const organization = settings.organization || {};
   const buffer = await exportInvoicePdf(invoice, generatedBy, {
     footerNote: defaults.footerNote,
+    organization,
   });
 
   res.setHeader('Content-Type', 'application/pdf');
