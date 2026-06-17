@@ -56,7 +56,6 @@ const ProposalGeneratorPage = lazy(() => import('../pages/proposals/ProposalGene
 const EmailWriterPage = lazy(() => import('../pages/tools/EmailWriterPage.jsx'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage.jsx'));
 const ProfileSettingsPage = lazy(() => import('../pages/settings/ProfileSettingsPage.jsx'));
-const PresencePage = lazy(() => import('../pages/admin/PresencePage.jsx'));
 const ActivityDashboardPage = lazy(() => import('../pages/admin/ActivityDashboardPage.jsx'));
 
 const RevenueReportPage = lazy(() => import('../pages/reports/RevenueReportPage.jsx'));
@@ -173,7 +172,6 @@ export const router = createBrowserRouter([
           { path: '/employees/new', element: lazyLoad(EmployeeCreatePage) },
           { path: '/employees/:id', element: lazyLoad(EmployeeDetailPage) },
           { path: '/tools/email-writer', element: lazyLoad(EmailWriterPage) },
-          { path: '/admin/presence', element: lazyLoad(PresencePage) },
         ],
       },
     ],

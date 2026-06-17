@@ -42,7 +42,6 @@ const ProposalGeneratorPage = lazy(() => import('../pages/proposals/ProposalGene
 const EmailWriterPage = lazy(() => import('../pages/tools/EmailWriterPage.jsx'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage.jsx'));
 const ProfileSettingsPage = lazy(() => import('../pages/settings/ProfileSettingsPage.jsx'));
-const PresencePage = lazy(() => import('../pages/admin/PresencePage.jsx'));
 const ActivityDashboardPage = lazy(() => import('../pages/admin/ActivityDashboardPage.jsx'));
 
 const StyleGuidePage = lazy(() => import('../pages/StyleGuidePage.jsx'));
@@ -89,7 +88,6 @@ export const ROUTE_CONFIG = [
   { path: ROUTES.EMPLOYEE_CREATE, component: EmployeeCreatePage, roles: ['super_admin', 'admin'], layout: 'app' },
   { path: ROUTES.EMPLOYEE_DETAIL, component: EmployeeDetailPage, roles: ['super_admin', 'admin'], layout: 'app' },
   { path: ROUTES.EMAIL_WRITER, component: EmailWriterPage, roles: ['super_admin', 'admin'], layout: 'app' },
-  { path: ROUTES.PRESENCE, component: PresencePage, roles: ['super_admin', 'admin'], layout: 'app' },
 
   // Protected: super admin only
   { path: ROUTES.ACTIVITY_DASHBOARD, component: ActivityDashboardPage, roles: ['super_admin'], layout: 'app' },

@@ -26,7 +26,6 @@ import {
   Calendar,
   BarChart3,
   Cpu,
-  Radio,
   History,
   UserCheck,
   FileText,
@@ -177,12 +176,6 @@ export default function Sidebar({
       label: 'AI Tools',
       to: '/tools/email-writer',
       icon: Cpu,
-      roles: ['super_admin', 'admin'],
-    },
-    {
-      label: 'Presence',
-      to: '/admin/presence',
-      icon: Radio,
       roles: ['super_admin', 'admin'],
     },
     {

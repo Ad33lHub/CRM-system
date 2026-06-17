@@ -65,7 +65,6 @@ export const ROUTES = {
   REPORTS:            '/reports',
 
   // Admin
-  PRESENCE:           '/admin/presence',
   ACTIVITY_DASHBOARD: '/admin/activity',
 
   // Errors
