@@ -37,3 +37,6 @@ tmp/
 scratch/
 *.jpeg
 *.png
+# …but keep committed brand assets (logos used by PDF/email rendering)
+!server/src/assets/
+!server/src/assets/*.png
