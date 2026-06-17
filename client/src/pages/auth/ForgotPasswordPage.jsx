@@ -1,126 +1,159 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, CheckCircle, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { Loader2, Mail, ArrowLeft, MailCheck, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useForgotPasswordMutation } from '../../services/authApi.js';
 import { Button } from '../../components/ui/button.jsx';
-import { Input } from '../../components/ui/input.jsx';
+import { AuthHeading, AuthBanner, TextField } from '../../features/auth/components/auth-ui.jsx';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RESEND_SECONDS = 60;
 
 export default function ForgotPasswordPage() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [touched, setTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [banner, setBanner] = useState(null);
+  const [cooldown, setCooldown] = useState(0);
+  const timerRef = useRef(null);
 
   const [forgotPasswordApi, { isLoading }] = useForgotPasswordMutation();
 
-  const handleResetSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMessage('');
+  const emailValid = EMAIL_RE.test(email);
+  const emailError = touched ? (!email ? 'Email is required' : !emailValid ? 'Enter a valid email address' : '') : '';
 
-    if (!email) {
-      setErrorMessage('Please enter your email address');
-      return;
-    }
+  // Countdown for the "Resend" link on the success screen.
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    timerRef.current = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timerRef.current);
+  }, [cooldown]);
 
+  const sendLink = async () => {
+    setBanner(null);
     try {
       await forgotPasswordApi(email).unwrap();
-      setIsSubmitted(true);
+      setSubmitted(true);
+      setCooldown(RESEND_SECONDS);
     } catch (err) {
-      setErrorMessage(err.data?.message || 'Failed to submit request. Please try again.');
+      // Never reveal whether the email exists — only surface transport/rate errors.
+      if (!err.status || err.status === 'FETCH_ERROR') {
+        setBanner({
+          variant: 'error',
+          text: 'Unable to connect. Check your internet connection and try again.',
+        });
+      } else if (err.status === 429) {
+        setBanner({ variant: 'warning', text: 'Too many attempts. Please wait a moment.' });
+      } else {
+        // Any other response is treated as success to avoid email enumeration.
+        setSubmitted(true);
+        setCooldown(RESEND_SECONDS);
+      }
     }
   };
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 p-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl">
-        <div className="flex flex-col items-center">
-          <img
-            className="mx-auto h-16 w-auto select-none rounded-xl"
-            src="https://verixsoft.com/icon.png"
-            alt="Verixsoft Logo"
-            onError={(e) => {
-              e.target.src = 'https://placehold.co/100x100/3b82f6/ffffff?text=V';
-            }}
-          />
-          <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
-            Reset Password
-          </h2>
-          <p className="mt-2 text-center text-sm text-slate-400">
-            Receive password recovery instructions
-          </p>
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setTouched(true);
+    if (!emailValid) return;
+    sendLink();
+  };
+
+  if (submitted) {
+    return (
+      <div className="text-center">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400">
+          <MailCheck className="h-7 w-7" />
         </div>
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+          Check your inbox
+        </h2>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+          If an account exists with that email, a reset link has been sent. Check your inbox — the
+          link expires in 15 minutes.
+        </p>
 
-        {isSubmitted ? (
-          <div className="space-y-6 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle className="h-6 w-6" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Request Received</h3>
-              <p className="text-sm text-slate-400">
-                If a matching profile exists for <strong>{email}</strong>, a password reset link has been sent. Please check your inbox.
-              </p>
-            </div>
-            <Button
-              onClick={() => navigate('/login')}
-              className="w-full h-11 text-white bg-blue-600 hover:bg-blue-700 font-bold transition-all rounded-lg"
-            >
-              Return to Login
-            </Button>
-          </div>
-        ) : (
-          <form className="mt-8 space-y-6" onSubmit={handleResetSubmit}>
-            {errorMessage && (
-              <div className="p-3.5 rounded-lg border border-rose-100 dark:border-rose-950 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 text-xs font-medium">
-                {errorMessage}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label htmlFor="reset-email" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Email address
-              </label>
-              <Input
-                id="reset-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                required
-                disabled={isLoading}
-                className="w-full h-11"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-11 text-white bg-blue-600 hover:bg-blue-700 font-bold transition-all rounded-lg"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending Link...
-                  </span>
-                ) : (
-                  'Send Reset Link'
-                )}
-              </Button>
-
-              <Button
+        <div className="mt-7 space-y-3">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Didn&apos;t get it?{' '}
+            {cooldown > 0 ? (
+              <span className="font-medium text-slate-400">Resend in {cooldown}s</span>
+            ) : (
+              <button
                 type="button"
-                variant="ghost"
-                onClick={() => navigate('/login')}
-                className="w-full h-11 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-semibold gap-2"
+                onClick={sendLink}
+                disabled={isLoading}
+                className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
               >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Login
-              </Button>
-            </div>
-          </form>
-        )}
+                Resend link
+              </button>
+            )}
+          </p>
+          <Link
+            to="/login"
+            className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to login
+          </Link>
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <>
+      <AuthHeading
+        title="Forgot your password?"
+        subtitle="Enter your email and we'll send you a reset link"
+      />
+
+      <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+        {banner ? (
+          <AuthBanner
+            variant={banner.variant}
+            icon={banner.variant === 'warning' ? AlertTriangle : AlertCircle}
+          >
+            {banner.text}
+          </AuthBanner>
+        ) : null}
+
+        <TextField
+          id="reset-email"
+          label="Email"
+          icon={Mail}
+          type="email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => setTouched(true)}
+          disabled={isLoading}
+          error={emailError}
+        />
+
+        <Button
+          type="submit"
+          disabled={!emailValid || isLoading}
+          className="h-11 w-full rounded-lg bg-blue-600 font-bold text-white transition-all hover:bg-blue-700"
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Sending...
+            </span>
+          ) : (
+            'Send Reset Link'
+          )}
+        </Button>
+
+        <Link
+          to="/login"
+          className="flex items-center justify-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to login
+        </Link>
+      </form>
+    </>
   );
 }
